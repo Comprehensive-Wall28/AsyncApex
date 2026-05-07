@@ -1,0 +1,13 @@
+<svg width="32" height="32" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- White Background Circle -->
+  <circle cx="20" cy="20" r="20" fill="white"/>
+  
+  <!-- Group to center the original icon (scaled slightly) -->
+  <g transform="translate(4, 4)">
+    <!-- Cloud Silhouette -->
+    <path d="M22 10C20.9 10 19.8 10.4 19 11.1C18.2 9.2 16.2 8 14 8C11.2 8 9 10.2 9 13C6.2 13 4 15.2 4 18C4 20.8 6.2 23 9 23H22C25.3 23 28 20.3 28 17C28 13.7 25.3 11 22 11V10Z" fill="#232F3E"/>
+    
+    <!-- Checkmark / Task Indicator -->
+    <path d="M12 16L15 19L21 13" stroke="#FF9900" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

@@ -1,10 +1,11 @@
 {
-  "name": "frontend",
+  "name": "asyncapex",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "buildDev": "tsc -b && vite build && vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

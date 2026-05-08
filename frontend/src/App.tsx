@@ -7,7 +7,18 @@ import { KanbanPreview } from './components/KanbanPreview'
 import { FeatureGrid } from './components/FeatureGrid'
 import { BoltRounded } from '@mui/icons-material'
 
+import { useEffect } from 'react'
+import api from './api'
+
 function AppContent() {
+  useEffect(() => {
+    // Verification call to test API client and .env loading
+    console.log('API Base URL:', import.meta.env.VITE_API_BASE_URL);
+    api.status.check()
+      .then(data => console.log('API Status Check:', data))
+      .catch(err => console.warn('API Status Check failed (expected if backend is not running):', err.message));
+  }, []);
+
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       <Navbar />

@@ -76,4 +76,47 @@ export class TeamsService {
     await this.findOne(teamId);
     await dynamoDB.send(new DeleteCommand({ TableName: TABLES.Teams, Key: { teamId } }));
   }
+
+  async addUserToTeam(teamId: string, userId: string) {
+    // Verify team exists
+    await this.findOne(teamId);
+
+    // Verify user exists
+    const userResult = await dynamoDB.send(
+      new GetCommand({ TableName: TABLES.Users, Key: { userId } }),
+    );
+    if (!userResult.Item) throw new NotFoundException(`User ${userId} not found`);
+
+    // Update user's teamId
+    const result = await dynamoDB.send(
+      new UpdateCommand({
+        TableName: TABLES.Users,
+        Key: { userId },
+        UpdateExpression: 'SET #teamId = :teamId, #updatedAt = :updatedAt',
+        ExpressionAttributeNames: { '#teamId': 'teamId', '#updatedAt': 'updatedAt' },
+        ExpressionAttributeValues: {
+          ':teamId': teamId,
+          ':updatedAt': new Date().toISOString(),
+        },
+        ReturnValues: 'ALL_NEW',
+      }),
+    );
+    return result.Attributes;
+  }
+
+  async getTeamUsers(teamId: string) {
+    // Verify team exists
+    await this.findOne(teamId);
+
+    // Get all users in team
+    const result = await dynamoDB.send(
+      new ScanCommand({
+        TableName: TABLES.Users,
+        FilterExpression: '#teamId = :teamId',
+        ExpressionAttributeNames: { '#teamId': 'teamId' },
+        ExpressionAttributeValues: { ':teamId': teamId },
+      }),
+    );
+    return result.Items || [];
+  }
 }

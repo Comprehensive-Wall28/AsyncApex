@@ -55,6 +55,7 @@ export class CognitoAuthGuard implements CanActivate {
       request.user = {
         userId: payload.sub,
         email: payload.email,
+        name: payload.name,
         role: payload['custom:role'],
         teamId: payload['custom:teamId'],
       };

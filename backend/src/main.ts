@@ -56,6 +56,35 @@ async function bootstrap() {
       tagsSorter: 'alpha',
       operationsSorter: 'alpha',
     },
+    customJsStr: `
+      (function () {
+        try {
+          var t = localStorage.getItem('swaggerToken');
+          if (t) window._jwtToken = JSON.parse(t);
+        } catch (_) {}
+
+        var origFetch = window.fetch;
+        window.fetch = function () {
+          var args = Array.prototype.slice.call(arguments);
+          if (window._jwtToken && typeof args[0] === 'string' && args[0].indexOf('/api/') !== -1) {
+            if (!args[1]) args[1] = {};
+            if (!args[1].headers) args[1].headers = {};
+            if (!args[1].headers['Authorization']) {
+              args[1].headers['Authorization'] = 'Bearer ' + window._jwtToken;
+            }
+          }
+          return origFetch.apply(this, args).then(function (res) {
+            res.clone().json().then(function (body) {
+              if (body && body.idToken) {
+                window._jwtToken = body.idToken;
+                localStorage.setItem('swaggerToken', JSON.stringify(body.idToken));
+              }
+            }).catch(function () {});
+            return res;
+          });
+        };
+      })();
+    `,
   });
 
   const port = process.env.PORT || 3000;

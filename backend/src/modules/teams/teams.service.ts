@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   DeleteCommand,
   GetCommand,
@@ -14,6 +14,18 @@ import { v4 as uuidv4 } from 'uuid';
 @Injectable()
 export class TeamsService {
   async create(dto: CreateTeamDto) {
+    const existing = await dynamoDB.send(
+      new ScanCommand({
+        TableName: TABLES.Teams,
+        FilterExpression: '#name = :name',
+        ExpressionAttributeNames: { '#name': 'name' },
+        ExpressionAttributeValues: { ':name': dto.name },
+      }),
+    );
+    if (existing.Items && existing.Items.length > 0) {
+      throw new ConflictException('Team with this name already exists');
+    }
+
     const item = {
       teamId: uuidv4(),
       name: dto.name,

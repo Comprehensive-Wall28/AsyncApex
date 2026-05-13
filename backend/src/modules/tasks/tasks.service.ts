@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -32,6 +33,8 @@ interface TaskFilters {
   projectId?: string;
 }
 
+const STATUS_ORDER = ['todo', 'in-progress', 'in-review', 'done'];
+
 @Injectable()
 export class TasksService {
   private readonly logger = new Logger(TasksService.name);
@@ -42,6 +45,26 @@ export class TasksService {
   ) {}
 
   async create(dto: CreateTaskDto, user: RequestUser) {
+    const assigneeResult = await dynamoDB.send(
+      new GetCommand({ TableName: TABLES.Users, Key: { userId: dto.assigneeId } }),
+    );
+    if (!assigneeResult.Item) throw new NotFoundException('Assignee not found');
+    const assignee = assigneeResult.Item;
+
+    const teamResult = await dynamoDB.send(
+      new GetCommand({ TableName: TABLES.Teams, Key: { teamId: dto.teamId } }),
+    );
+    if (!teamResult.Item) throw new NotFoundException('Team not found');
+
+    const projectResult = await dynamoDB.send(
+      new GetCommand({ TableName: TABLES.Projects, Key: { projectId: dto.projectId } }),
+    );
+    if (!projectResult.Item) throw new NotFoundException('Project not found');
+
+    if (assignee['teamId'] !== dto.teamId) {
+      throw new BadRequestException('Assignee does not belong to this team');
+    }
+
     const now = new Date().toISOString();
     const task = {
       taskId: uuidv4(),
@@ -61,19 +84,16 @@ export class TasksService {
 
     await dynamoDB.send(new PutCommand({ TableName: TABLES.Tasks, Item: task }));
 
-    if (dto.assigneeId) {
-      try {
-        const assignee = await this.usersService.findOne(dto.assigneeId);
-        await this.notificationsService.publishTaskAssignment({
-          taskId: task.taskId,
-          taskTitle: dto.title,
-          assigneeEmail: assignee['email'],
-          assigneeName: assignee['name'],
-          teamId: dto.teamId,
-        });
-      } catch (err) {
-        this.logger.warn(`Failed to send assignment notification: ${err}`);
-      }
+    try {
+      await this.notificationsService.publishTaskAssignment({
+        taskId: task.taskId,
+        taskTitle: dto.title,
+        assigneeEmail: assignee['email'],
+        assigneeName: assignee['name'],
+        teamId: dto.teamId,
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to send assignment notification: ${err}`);
     }
 
     return task;
@@ -126,6 +146,10 @@ export class TasksService {
       throw new ForbiddenException('Only the assigned employee or a manager can update this task');
     }
 
+    if (dto.status && dto.status !== task['status']) {
+      this.validateStatusTransition(task['status'], dto.status, user.role);
+    }
+
     const updates = Object.entries({
       ...dto,
       updatedAt: new Date().toISOString(),
@@ -156,6 +180,22 @@ export class TasksService {
   async remove(taskId: string, user: RequestUser) {
     await this.findOne(taskId, user);
     await dynamoDB.send(new DeleteCommand({ TableName: TABLES.Tasks, Key: { taskId } }));
+  }
+
+  private validateStatusTransition(from: string, to: string, role: string): void {
+    if (role === 'manager') return;
+
+    const allowed: Record<string, string> = {
+      'todo': 'in-progress',
+      'in-progress': 'in-review',
+      'in-review': 'done',
+    };
+
+    if (allowed[from] !== to) {
+      throw new BadRequestException(
+        `Invalid status transition: ${from} → ${to}. Allowed: ${from} → ${allowed[from] ?? 'none'}`,
+      );
+    }
   }
 
   private async queryByIndex(

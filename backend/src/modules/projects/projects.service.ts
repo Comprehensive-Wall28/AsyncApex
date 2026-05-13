@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   DeleteCommand,
   GetCommand,
@@ -14,6 +14,18 @@ import { v4 as uuidv4 } from 'uuid';
 @Injectable()
 export class ProjectsService {
   async create(dto: CreateProjectDto, managerId: string) {
+    const existing = await dynamoDB.send(
+      new ScanCommand({
+        TableName: TABLES.Projects,
+        FilterExpression: '#name = :name',
+        ExpressionAttributeNames: { '#name': 'name' },
+        ExpressionAttributeValues: { ':name': dto.name },
+      }),
+    );
+    if (existing.Items && existing.Items.length > 0) {
+      throw new ConflictException('Project with this name already exists');
+    }
+
     const now = new Date().toISOString();
     const item = {
       projectId: uuidv4(),

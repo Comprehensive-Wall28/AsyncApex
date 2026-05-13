@@ -1,0 +1,21 @@
+# Environment — NEVER commit real credentials
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/

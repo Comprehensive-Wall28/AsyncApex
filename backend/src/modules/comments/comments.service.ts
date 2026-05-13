@@ -53,7 +53,7 @@ export class CommentsService {
 
     const comment = result.Item;
     if (user.role !== 'manager' && comment['authorId'] !== user.userId) {
-      throw new ForbiddenException('Only the comment author or a manager can delete this comment');
+      throw new ForbiddenException('You can only delete your own comments');
     }
 
     await dynamoDB.send(

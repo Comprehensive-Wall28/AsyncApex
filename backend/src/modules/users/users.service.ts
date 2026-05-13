@@ -13,7 +13,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 @Injectable()
 export class UsersService {
   async create(dto: CreateUserDto) {
-    const item = { ...dto, createdAt: new Date().toISOString() };
+    const item = { ...dto, isLoggedIn: false, createdAt: new Date().toISOString() };
     await dynamoDB.send(new PutCommand({ TableName: TABLES.Users, Item: item }));
     return item;
   }
@@ -29,6 +29,30 @@ export class UsersService {
     );
     if (!result.Item) throw new NotFoundException(`User ${userId} not found`);
     return result.Item;
+  }
+
+  async findByEmail(email: string): Promise<Record<string, any> | null> {
+    const result = await dynamoDB.send(
+      new ScanCommand({
+        TableName: TABLES.Users,
+        FilterExpression: '#email = :email',
+        ExpressionAttributeNames: { '#email': 'email' },
+        ExpressionAttributeValues: { ':email': email },
+      }),
+    );
+    return result.Items?.[0] ?? null;
+  }
+
+  async setLoginStatus(userId: string, isLoggedIn: boolean): Promise<void> {
+    await dynamoDB.send(
+      new UpdateCommand({
+        TableName: TABLES.Users,
+        Key: { userId },
+        UpdateExpression: 'SET #loggedIn = :loggedIn',
+        ExpressionAttributeNames: { '#loggedIn': 'isLoggedIn' },
+        ExpressionAttributeValues: { ':loggedIn': isLoggedIn },
+      }),
+    );
   }
 
   async update(userId: string, dto: UpdateUserDto) {

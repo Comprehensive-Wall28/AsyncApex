@@ -18,6 +18,7 @@ import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
+import { S3Service } from '../s3/s3.service';
 import { v4 as uuidv4 } from 'uuid';
 
 interface RequestUser {
@@ -42,9 +43,10 @@ export class TasksService {
   constructor(
     private readonly notificationsService: NotificationsService,
     private readonly usersService: UsersService,
+    private readonly s3Service: S3Service,
   ) {}
 
-  async create(dto: CreateTaskDto, user: RequestUser) {
+  async create(dto: CreateTaskDto, user: RequestUser, file?: Express.Multer.File) {
     const assigneeResult = await dynamoDB.send(
       new GetCommand({ TableName: TABLES.Users, Key: { userId: dto.assigneeId } }),
     );
@@ -65,6 +67,12 @@ export class TasksService {
       throw new BadRequestException('Assignee does not belong to this team');
     }
 
+    let imageKey: string | undefined;
+    if (file) {
+      const uploaded = await this.s3Service.upload(file);
+      imageKey = uploaded.key;
+    }
+
     const now = new Date().toISOString();
     const task = {
       taskId: uuidv4(),
@@ -76,7 +84,7 @@ export class TasksService {
       assigneeId: dto.assigneeId,
       teamId: dto.teamId,
       projectId: dto.projectId,
-      imageKey: dto.imageKey,
+      ...(imageKey ? { imageKey } : {}),
       createdBy: user.userId,
       createdAt: now,
       updatedAt: now,
@@ -148,7 +156,7 @@ export class TasksService {
     return task;
   }
 
-  async update(taskId: string, dto: UpdateTaskDto, user: RequestUser) {
+  async update(taskId: string, dto: UpdateTaskDto, user: RequestUser, file?: Express.Multer.File) {
     const task = await this.findOne(taskId, user);
 
     if (user.role !== 'manager' && task['assigneeId'] !== user.userId) {
@@ -159,14 +167,43 @@ export class TasksService {
       this.validateStatusTransition(task['status'], dto.status, user.role);
     }
 
-    const updates = Object.entries({
-      ...dto,
-      updatedAt: new Date().toISOString(),
-    }).filter(([, v]) => v !== undefined);
+    const isMarkingDone = dto.status === 'done' && task['status'] !== 'done';
 
-    const expression = 'SET ' + updates.map((_, i) => `#u${i} = :u${i}`).join(', ');
-    const names = Object.fromEntries(updates.map(([k], i) => [`#u${i}`, k]));
-    const values = Object.fromEntries(updates.map(([, v], i) => [`:u${i}`, v]));
+    // Handle image replacement (skip upload if marking done — image will be deleted)
+    let newImageKey: string | undefined;
+    if (file && !isMarkingDone) {
+      if (task['imageKey']) {
+        try {
+          await this.s3Service.remove(task['imageKey']);
+        } catch (err) {
+          this.logger.warn(`Failed to remove old S3 image for task ${taskId}: ${err}`);
+        }
+      }
+      const uploaded = await this.s3Service.upload(file);
+      newImageKey = uploaded.key;
+    }
+
+    const setData: Record<string, any> = {
+      ...dto,
+      ...(newImageKey ? { imageKey: newImageKey } : {}),
+      updatedAt: new Date().toISOString(),
+    };
+    const setUpdates = Object.entries(setData).filter(([, v]) => v !== undefined);
+
+    const names: Record<string, string> = Object.fromEntries(
+      setUpdates.map(([k], i) => [`#u${i}`, k]),
+    );
+    const values: Record<string, any> = Object.fromEntries(
+      setUpdates.map(([, v], i) => [`:u${i}`, v]),
+    );
+
+    let expression = 'SET ' + setUpdates.map((_, i) => `#u${i} = :u${i}`).join(', ');
+
+    // Remove imageKey attribute from DB when marking done
+    if (isMarkingDone && task['imageKey']) {
+      names['#imgKey'] = 'imageKey';
+      expression += ' REMOVE #imgKey';
+    }
 
     const result = await dynamoDB.send(
       new UpdateCommand({
@@ -181,14 +218,30 @@ export class TasksService {
 
     if (dto.status && dto.status !== task['status']) {
       await this.logStatusChange(taskId, user.userId, task['status'], dto.status);
+
+      if (isMarkingDone && task['imageKey']) {
+        try {
+          await this.s3Service.remove(task['imageKey']);
+        } catch (err) {
+          this.logger.warn(`Failed to remove S3 image for completed task ${taskId}: ${err}`);
+        }
+      }
     }
 
     return result.Attributes;
   }
 
   async remove(taskId: string, user: RequestUser) {
-    await this.findOne(taskId, user);
+    const task = await this.findOne(taskId, user);
     await dynamoDB.send(new DeleteCommand({ TableName: TABLES.Tasks, Key: { taskId } }));
+
+    if (task['imageKey']) {
+      try {
+        await this.s3Service.remove(task['imageKey']);
+      } catch (err) {
+        this.logger.warn(`Failed to remove S3 image for deleted task ${taskId}: ${err}`);
+      }
+    }
   }
 
   private validateStatusTransition(from: string, to: string, role: string): void {

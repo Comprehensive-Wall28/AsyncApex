@@ -10,16 +10,22 @@ import {
   Post,
   Query,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiParam,
   ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
@@ -38,13 +44,37 @@ export class TasksController {
   @UseGuards(RolesGuard)
   @Roles('manager')
   @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Create a task',
-    description: 'Manager only. Publishes an SNS notification to the assignee if `assigneeId` is provided.',
+    description:
+      'Manager only. Optionally attach an image by including a `file` field in the multipart form — ' +
+      'it is uploaded to S3 automatically. Publishes an SNS notification to the assignee.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['title', 'priority', 'teamId', 'projectId'],
+      properties: {
+        title:       { type: 'string', example: 'Fix login bug' },
+        description: { type: 'string', example: 'Broken on mobile' },
+        priority:    { type: 'string', enum: ['low', 'medium', 'high'] },
+        deadline:    { type: 'string', example: '2025-12-31T23:59:59.000Z' },
+        assigneeId:  { type: 'string', example: 'uuid' },
+        teamId:      { type: 'string', example: 'uuid' },
+        projectId:   { type: 'string', example: 'uuid' },
+        file:        { type: 'string', format: 'binary', description: 'Optional image attachment' },
+      },
+    },
   })
   @ApiResponse({ status: 201, description: 'Task created' })
-  create(@Body() dto: CreateTaskDto, @Req() req: any) {
-    return this.tasksService.create(dto, req.user);
+  create(
+    @Body() dto: CreateTaskDto,
+    @Req() req: any,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.tasksService.create(dto, req.user, file);
   }
 
   @Get()
@@ -93,23 +123,51 @@ export class TasksController {
   }
 
   @Patch(':id')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Update a task',
-    description: 'Managers can update any task. Employees can only update tasks assigned to them. Status changes are written to the ActivityLog table.',
+    description:
+      'Managers can update any task. Employees can only update tasks assigned to them.\n\n' +
+      'Include a `file` field to replace the attached image (old image deleted from S3 automatically).\n\n' +
+      'Setting `status` to `done` deletes the image from S3 and removes `imageKey` from the task.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        title:       { type: 'string' },
+        description: { type: 'string' },
+        status:      { type: 'string', enum: ['todo', 'in-progress', 'in-review', 'done'], description: 'Setting to `done` deletes the attached image' },
+        priority:    { type: 'string', enum: ['low', 'medium', 'high'] },
+        deadline:    { type: 'string', example: '2025-12-31T23:59:59.000Z' },
+        assigneeId:  { type: 'string', example: 'uuid' },
+        file:        { type: 'string', format: 'binary', description: 'Replaces the current image attachment' },
+      },
+    },
   })
   @ApiParam({ name: 'id', description: 'taskId (UUID)' })
   @ApiResponse({ status: 200, description: 'Updated task object' })
   @ApiResponse({ status: 403, description: 'Not the assignee or not a manager' })
   @ApiResponse({ status: 404, description: 'Task not found' })
-  update(@Param('id') id: string, @Body() dto: UpdateTaskDto, @Req() req: any) {
-    return this.tasksService.update(id, dto, req.user);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateTaskDto,
+    @Req() req: any,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.tasksService.update(id, dto, req.user, file);
   }
 
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles('manager')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a task', description: 'Manager only.' })
+  @ApiOperation({
+    summary: 'Delete a task',
+    description:
+      'Manager only. If the task has an attached `imageKey`, the image is automatically deleted from S3.',
+  })
   @ApiParam({ name: 'id', description: 'taskId (UUID)' })
   @ApiResponse({ status: 204, description: 'Deleted successfully' })
   @ApiResponse({ status: 404, description: 'Task not found' })

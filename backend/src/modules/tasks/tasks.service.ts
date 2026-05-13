@@ -140,6 +140,16 @@ export class TasksService {
       throw new ForbiddenException('Access denied to requested user tasks');
     }
 
+    if (requester.role !== 'manager') {
+      if (!requester.teamId) {
+        throw new ForbiddenException('User is not assigned to a team');
+      }
+      // Employee scope is always restricted to their own team.
+      return this.queryByIndex('assigneeId-index', 'assigneeId', targetUserId, {
+        teamId: requester.teamId,
+      });
+    }
+
     return this.queryByIndex('assigneeId-index', 'assigneeId', targetUserId, {});
   }
 

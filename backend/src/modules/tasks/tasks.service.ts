@@ -324,6 +324,119 @@ export class TasksService {
     return result.Items || [];
   }
 
+  async startTask(taskId: string, user: RequestUser) {
+    const task = await this.findOne(taskId, user);
+
+    if (task['status'] !== 'todo') {
+      throw new BadRequestException(`Task status is ${task['status']}, not 'todo'. Cannot start a task that's already in progress.`);
+    }
+
+    if (user.role !== 'manager' && task['assigneeId'] !== user.userId) {
+      throw new ForbiddenException('Only the assigned employee can start this task');
+    }
+
+    const result = await dynamoDB.send(
+      new UpdateCommand({
+        TableName: TABLES.Tasks,
+        Key: { taskId },
+        UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt',
+        ExpressionAttributeNames: { '#status': 'status', '#updatedAt': 'updatedAt' },
+        ExpressionAttributeValues: { ':status': 'in-progress', ':updatedAt': new Date().toISOString() },
+        ReturnValues: 'ALL_NEW',
+      }),
+    );
+
+    await this.logStatusChange(taskId, user.userId, 'todo', 'in-progress');
+    return result.Attributes;
+  }
+
+  async submitTask(taskId: string, user: RequestUser) {
+    const task = await this.findOne(taskId, user);
+
+    if (task['status'] !== 'in-progress') {
+      throw new BadRequestException(`Task status is ${task['status']}, not 'in-progress'. Only in-progress tasks can be submitted for review.`);
+    }
+
+    if (user.role !== 'manager' && task['assigneeId'] !== user.userId) {
+      throw new ForbiddenException('Only the assigned employee can submit this task for review');
+    }
+
+    const result = await dynamoDB.send(
+      new UpdateCommand({
+        TableName: TABLES.Tasks,
+        Key: { taskId },
+        UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt',
+        ExpressionAttributeNames: { '#status': 'status', '#updatedAt': 'updatedAt' },
+        ExpressionAttributeValues: { ':status': 'in-review', ':updatedAt': new Date().toISOString() },
+        ReturnValues: 'ALL_NEW',
+      }),
+    );
+
+    await this.logStatusChange(taskId, user.userId, 'in-progress', 'in-review');
+    return result.Attributes;
+  }
+
+  async approveTask(taskId: string, user: RequestUser) {
+    if (user.role !== 'manager') {
+      throw new ForbiddenException('Only managers can approve tasks');
+    }
+
+    const task = await this.findOne(taskId, user);
+
+    if (task['status'] !== 'in-review') {
+      throw new BadRequestException(`Task status is ${task['status']}, not 'in-review'. Only tasks in review can be approved.`);
+    }
+
+    // Delete image if present (task is being marked done)
+    if (task['imageKey']) {
+      try {
+        await this.s3Service.remove(task['imageKey']);
+      } catch (err) {
+        this.logger.warn(`Failed to remove S3 image for approved task ${taskId}: ${err}`);
+      }
+    }
+
+    const result = await dynamoDB.send(
+      new UpdateCommand({
+        TableName: TABLES.Tasks,
+        Key: { taskId },
+        UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt REMOVE #imgKey',
+        ExpressionAttributeNames: { '#status': 'status', '#updatedAt': 'updatedAt', '#imgKey': 'imageKey' },
+        ExpressionAttributeValues: { ':status': 'done', ':updatedAt': new Date().toISOString() },
+        ReturnValues: 'ALL_NEW',
+      }),
+    );
+
+    await this.logStatusChange(taskId, user.userId, 'in-review', 'done');
+    return result.Attributes;
+  }
+
+  async rejectTask(taskId: string, user: RequestUser) {
+    if (user.role !== 'manager') {
+      throw new ForbiddenException('Only managers can reject tasks');
+    }
+
+    const task = await this.findOne(taskId, user);
+
+    if (task['status'] !== 'in-review') {
+      throw new BadRequestException(`Task status is ${task['status']}, not 'in-review'. Only tasks in review can be rejected.`);
+    }
+
+    const result = await dynamoDB.send(
+      new UpdateCommand({
+        TableName: TABLES.Tasks,
+        Key: { taskId },
+        UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt',
+        ExpressionAttributeNames: { '#status': 'status', '#updatedAt': 'updatedAt' },
+        ExpressionAttributeValues: { ':status': 'in-progress', ':updatedAt': new Date().toISOString() },
+        ReturnValues: 'ALL_NEW',
+      }),
+    );
+
+    await this.logStatusChange(taskId, user.userId, 'in-review', 'in-progress');
+    return result.Attributes;
+  }
+
   private async logStatusChange(
     taskId: string,
     changedBy: string,

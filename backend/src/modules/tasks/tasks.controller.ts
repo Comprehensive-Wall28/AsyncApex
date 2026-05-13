@@ -174,4 +174,68 @@ export class TasksController {
   async remove(@Param('id') id: string, @Req() req: any) {
     await this.tasksService.remove(id, req.user);
   }
+
+  @Post(':id/start')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Start working on a task',
+    description: 'Move task status from `todo` to `in-progress`. Only the assigned employee can start their assigned task (managers can start any task).',
+  })
+  @ApiParam({ name: 'id', description: 'taskId (UUID)' })
+  @ApiResponse({ status: 200, description: 'Task status changed to in-progress' })
+  @ApiResponse({ status: 400, description: 'Task is not in todo status' })
+  @ApiResponse({ status: 403, description: 'Not the assignee or not a manager' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
+  startTask(@Param('id') id: string, @Req() req: any) {
+    return this.tasksService.startTask(id, req.user);
+  }
+
+  @Post(':id/submit')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Submit task for review',
+    description: 'Move task status from `in-progress` to `in-review`. Only the assigned employee can submit their assigned task (managers can submit any task).',
+  })
+  @ApiParam({ name: 'id', description: 'taskId (UUID)' })
+  @ApiResponse({ status: 200, description: 'Task status changed to in-review' })
+  @ApiResponse({ status: 400, description: 'Task is not in in-progress status' })
+  @ApiResponse({ status: 403, description: 'Not the assignee or not a manager' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
+  submitTask(@Param('id') id: string, @Req() req: any) {
+    return this.tasksService.submitTask(id, req.user);
+  }
+
+  @Post(':id/approve')
+  @UseGuards(RolesGuard)
+  @Roles('manager')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Approve task as complete',
+    description: 'Manager only. Move task status from `in-review` to `done`. Automatically deletes attached image from S3.',
+  })
+  @ApiParam({ name: 'id', description: 'taskId (UUID)' })
+  @ApiResponse({ status: 200, description: 'Task status changed to done' })
+  @ApiResponse({ status: 400, description: 'Task is not in in-review status' })
+  @ApiResponse({ status: 403, description: 'Only managers can approve tasks' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
+  approveTask(@Param('id') id: string, @Req() req: any) {
+    return this.tasksService.approveTask(id, req.user);
+  }
+
+  @Post(':id/reject')
+  @UseGuards(RolesGuard)
+  @Roles('manager')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Reject task and return to in-progress',
+    description: 'Manager only. Move task status from `in-review` back to `in-progress` for employee to fix.',
+  })
+  @ApiParam({ name: 'id', description: 'taskId (UUID)' })
+  @ApiResponse({ status: 200, description: 'Task status changed to in-progress' })
+  @ApiResponse({ status: 400, description: 'Task is not in in-review status' })
+  @ApiResponse({ status: 403, description: 'Only managers can reject tasks' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
+  rejectTask(@Param('id') id: string, @Req() req: any) {
+    return this.tasksService.rejectTask(id, req.user);
+  }
 }

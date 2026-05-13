@@ -1,16 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Card, Avatar, Chip, Stack, CircularProgress } from '@mui/material';
 import api from '../api';
-
-interface Task {
-  taskId: string;
-  title: string;
-  description: string;
-  status: 'todo' | 'in-progress' | 'in-review' | 'done';
-  priority: 'low' | 'medium' | 'high';
-  assigneeId?: string;
-  imageKey?: string;
-}
+import type { Task } from '../api/interface';
 
 interface TaskBoardProps {
   teamId?: string;
@@ -104,7 +95,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role }) => {
           <Typography variant="h6" sx={{ mb: 2, px: 1, fontSize: '1.1rem', color: 'text.secondary' }}>
             {col.title} <Typography component="span" sx={{ fontSize: '0.8rem', opacity: 0.5 }}>({tasks.filter(t => t.status === col.id).length})</Typography>
           </Typography>
-          
+
           <Stack spacing={2}>
             {tasks.filter(t => t.status === col.id).map(task => (
               <Card
@@ -139,16 +130,16 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role }) => {
                   </Box>
                 )}
                 <Typography sx={{ fontWeight: 600, mb: 1, fontSize: '0.95rem' }}>{task.title}</Typography>
-                
+
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-                  <Chip 
-                    label={task.priority.toUpperCase()} 
-                    size="small" 
+                  <Chip
+                    label={task.priority.toUpperCase()}
+                    size="small"
                     color={getPriorityColor(task.priority) as any}
                     sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }}
                   />
                   <Avatar sx={{ width: 24, height: 24, bgcolor: 'primary.dark', fontSize: '0.7rem' }}>
-                    {task.assigneeId ? task.assigneeId.substring(0,2).toUpperCase() : '?'}
+                    {task.assigneeId ? task.assigneeId.substring(0, 2).toUpperCase() : '?'}
                   </Avatar>
                 </Box>
               </Card>

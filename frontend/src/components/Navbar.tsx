@@ -1,10 +1,11 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, Button, Box, Container } from '@mui/material';
 import { BoltRounded } from '@mui/icons-material';
 
 export const Navbar: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <AppBar

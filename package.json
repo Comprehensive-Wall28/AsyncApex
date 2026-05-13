@@ -1,0 +1,22 @@
+{
+	"dependencies": {
+		"concurrently": "^9.2.1"
+	},
+	"scripts": {
+		"start": "concurrently \"pnpm run frontend:dev\" \"npm run backend:start:dev\"",
+		"frontend:dev": "cd frontend && pnpm dev",
+		"backend:build": "cd backend && npm run build",
+		"backend:start": "cd backend && npm run start",
+		"backend:start:dev": "cd backend && npm run start:dev",
+		"backend:start:debug": "cd backend && npm run start:debug",
+		"backend:start:prod": "cd backend && npm run start:prod",
+		"backend:lint": "cd backend && npm run lint",
+		"backend:test": "cd backend && npm run test",
+		"backend:test:watch": "cd backend && npm run test:watch",
+		"backend:test:cov": "cd backend && npm run test:cov",
+		"backend:test:aws": "cd backend && npm run test:aws",
+		"install:all": "pnpm install && pnpm run frontend:install && pnpm run backend:install",
+		"frontend:install": "cd frontend && pnpm install",
+		"backend:install": "cd backend && npm install"
+	}
+}

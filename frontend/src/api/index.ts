@@ -5,8 +5,15 @@ import { client } from './client';
  * This centralized structure makes it easy to manage endpoints and types.
  */
 export const api = {
+  teams: {
+    getAll: () => client.get('/teams'),
+    getOne: (id: string) => client.get(`/teams/${id}`),
+    create: (data: any) => client.post('/teams', data),
+    update: (id: string, data: any) => client.patch(`/teams/${id}`, data),
+    delete: (id: string) => client.delete(`/teams/${id}`),
+  },
   tasks: {
-    getAll: (params?: { teamId?: string; assigneeId?: string; status?: string; projectId?: string }) => 
+    getAll: (params?: { teamId?: string; assigneeId?: string; status?: string; projectId?: string }) =>
       client.get('/tasks', { params }),
     getOne: (id: string) => client.get(`/tasks/${id}`),
     create: (data: any) => client.post('/tasks', data),
@@ -37,6 +44,40 @@ export const api = {
     submit: (id: string) => client.post(`/tasks/${id}/submit`),
     approve: (id: string) => client.post(`/tasks/${id}/approve`),
     reject: (id: string) => client.post(`/tasks/${id}/reject`),
+  },
+
+  projects: {
+    getAll: (params?: { teamId?: string; assigneeId?: string; status?: string; projectId?: string }) =>
+      client.get('/projects', { params }),
+    getOne: (id: string) => client.get(`/projects/${id}`),
+    create: (data: any) => client.post('/projects', data),
+    // For file uploads, we need to skip the default JSON Content-Type
+    createWithFile: async (formData: FormData) => {
+      const token = localStorage.getItem('idToken');
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || '/api'}/projects`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Failed to create project');
+      return res.json();
+    },
+    update: (id: string, data: any) => client.patch(`/projects/${id}`, data),
+    updateWithFile: async (id: string, formData: FormData) => {
+      const token = localStorage.getItem('idToken');
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || '/api'}/projects/${id}`, {
+        method: 'PATCH',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Failed to update project');
+      return res.json();
+    },
+    delete: (id: string) => client.delete(`/projects/${id}`),
+    start: (id: string) => client.post(`/projects/${id}/start`),
+    submit: (id: string) => client.post(`/projects/${id}/submit`),
+    approve: (id: string) => client.post(`/projects/${id}/approve`),
+    reject: (id: string) => client.post(`/projects/${id}/reject`),
   },
 
   users: {

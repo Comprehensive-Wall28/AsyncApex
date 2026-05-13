@@ -9,7 +9,7 @@ import {
   AssignmentRounded,
   GroupRounded,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../api';
 
 interface SidebarProps {
@@ -20,6 +20,7 @@ interface SidebarProps {
 
 export const CollapsibleSidebar: React.FC<SidebarProps> = ({ userName, collapsed, onToggle }) => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = async () => {
     try {
@@ -35,9 +36,9 @@ export const CollapsibleSidebar: React.FC<SidebarProps> = ({ userName, collapsed
   };
 
   const navItems = [
-    { label: 'Dashboard', icon: <DashboardRounded />, active: true },
-    { label: 'Projects', icon: <AssignmentRounded />, active: false },
-    { label: 'Teams', icon: <GroupRounded />, active: false },
+    { label: 'Dashboard', icon: <DashboardRounded />, path: '/dashboard' },
+    { label: 'Projects', icon: <AssignmentRounded />, path: '/projects' },
+    { label: 'Teams', icon: <GroupRounded />, path: '/teams' },
   ];
 
   return (
@@ -107,36 +108,47 @@ export const CollapsibleSidebar: React.FC<SidebarProps> = ({ userName, collapsed
 
       {/* Nav Items */}
       <Box sx={{ flexGrow: 1, py: 3, px: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {navItems.map((item) => (
-          <Tooltip title={collapsed ? item.label : ''} placement="right" key={item.label}>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-                px: collapsed ? 0 : 2,
-                py: 1.5,
-                borderRadius: '12px',
-                cursor: 'pointer',
-                justifyContent: collapsed ? 'center' : 'flex-start',
-                background: item.active ? 'rgba(139, 92, 246, 0.15)' : 'transparent',
-                color: item.active ? 'primary.light' : 'text.secondary',
-                transition: 'all 0.2s',
-                '&:hover': {
-                  background: 'rgba(139, 92, 246, 0.08)',
-                  color: 'text.primary',
-                },
-              }}
-            >
-              {item.icon}
-              {!collapsed && (
-                <Typography sx={{ fontWeight: item.active ? 600 : 500, fontSize: '0.95rem', whiteSpace: 'nowrap' }}>
-                  {item.label}
-                </Typography>
-              )}
-            </Box>
-          </Tooltip>
-        ))}
+        {navItems.map((item) => {
+          const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+          return (
+            <Tooltip title={collapsed ? item.label : ''} placement="right" key={item.label}>
+              <Box
+                onClick={() => navigate(item.path)}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  px: collapsed ? 0 : 2,
+                  py: 1.5,
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  justifyContent: collapsed ? 'center' : 'flex-start',
+                  background: isActive ? 'rgba(139, 92, 246, 0.15)' : 'transparent',
+                  color: isActive ? 'primary.light' : 'text.secondary',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    background: 'rgba(139, 92, 246, 0.08)',
+                    color: 'text.primary',
+                  },
+                }}
+              >
+                {item.icon}
+
+                {!collapsed && (
+                  <Typography
+                    sx={{
+                      fontWeight: isActive ? 600 : 500,
+                      fontSize: '0.95rem',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {item.label}
+                  </Typography>
+                )}
+              </Box>
+            </Tooltip>
+          );
+        })}
       </Box>
 
       {/* Footer / Profile */}

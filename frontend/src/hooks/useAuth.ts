@@ -19,7 +19,7 @@ export const useAuth = () => {
         const token = localStorage.getItem('idToken');
         if (token) {
           const decoded: any = jwtDecode(token);
-          
+
           setUser({
             userId: decoded.sub,
             email: decoded.email,

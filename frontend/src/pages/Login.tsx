@@ -24,7 +24,12 @@ export const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      await api.auth.login(formData);
+      const response: any = await api.auth.login(formData);
+      if (response.idToken) {
+        localStorage.setItem('idToken', response.idToken);
+        localStorage.setItem('accessToken', response.accessToken);
+        localStorage.setItem('refreshToken', response.refreshToken);
+      }
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid email or password. Please try again.');

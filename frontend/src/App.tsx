@@ -5,7 +5,7 @@ import { Landing } from './pages/Landing'
 import { RoleSelection } from './pages/RoleSelection'
 import { SignUp } from './pages/SignUp'
 import { Login } from './pages/Login'
-import { DashboardTemp } from './pages/DashboardTemp'
+import { MainDashboard } from './pages/MainDashboard'
 
 function App() {
   return (
@@ -16,7 +16,7 @@ function App() {
           <Route path="/role-selection" element={<RoleSelection />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<DashboardTemp />} />
+          <Route path="/dashboard" element={<MainDashboard />} />
         </Routes>
       </BrowserRouter>
     </AppThemeProvider>

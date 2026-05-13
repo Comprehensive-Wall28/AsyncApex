@@ -13,13 +13,22 @@ async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Pr
   // Construct URL with query parameters if provided
   const url = new URL(`${BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`, window.location.origin);
   if (params) {
-    Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null) {
+        url.searchParams.append(key, params[key]);
+      }
+    });
   }
 
-  const headers = {
+  const token = localStorage.getItem('idToken');
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...customOptions.headers,
+    ...customOptions.headers as Record<string, string>,
   };
+
+  if (token && !endpoint.includes('/auth/signin') && !endpoint.includes('/auth/signup')) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
   const config: RequestInit = {
     ...customOptions,

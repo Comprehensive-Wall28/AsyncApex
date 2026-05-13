@@ -50,6 +50,7 @@
 | Chips / Badges | Pill (MUI default) | No override needed |
 | Cards / Feature panels | `16px` | `borderRadius: '16px'` |
 | Kanban column panels | `16px` | `borderRadius: '16px'` |
+| Interactable components (Task Cards) | `12px` | Lower appropriate rounding, NOT pill-shaped |
 | Icon boxes (small square) | `8px–12px` | Slight rounding, not pill |
 | Progress bars | `2px` | Thin bars stay subtly rounded |
 

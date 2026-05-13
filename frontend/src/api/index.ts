@@ -15,6 +15,7 @@ export const api = {
   
   auth: {
     login: (credentials: any) => client.post('/auth/login', credentials),
+    signup: (data: any) => client.post('/auth/signup', data),
     logout: () => client.post('/auth/logout'),
     getMe: () => client.get('/auth/me'),
   },

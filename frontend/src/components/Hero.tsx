@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Typography, Button, Container, Stack, Chip } from '@mui/material';
 import { ArrowForwardRounded, PlayArrowRounded } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 
 const stats = [
   { value: '99.99%', label: 'Uptime SLA' },
@@ -9,6 +10,8 @@ const stats = [
 ];
 
 export const Hero: React.FC = () => {
+  const navigate = useNavigate();
+
   return (
     <Box
       sx={{
@@ -109,6 +112,7 @@ export const Hero: React.FC = () => {
             variant="contained"
             color="primary"
             size="large"
+            onClick={() => navigate('/role-selection')}
             endIcon={<ArrowForwardRounded />}
             sx={{
               py: 1.6,

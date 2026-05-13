@@ -70,6 +70,15 @@ export class TasksController {
     return this.tasksService.findAll(req.user, { teamId, assigneeId, status, projectId });
   }
 
+  @Get('by-user/:userId')
+  @ApiOperation({ summary: "Get tasks for a specific user", description: 'Managers may view any user; employees may view only their own tasks.' })
+  @ApiParam({ name: 'userId', description: 'userId (UUID) to fetch tasks for' })
+  @ApiResponse({ status: 200, description: 'Array of task objects' })
+  @ApiResponse({ status: 403, description: 'Access denied' })
+  getByUser(@Param('userId') userId: string, @Req() req: any) {
+    return this.tasksService.getTasksByUser(userId, req.user);
+  }
+
   @Get(':id')
   @ApiOperation({
     summary: 'Get a task by ID',

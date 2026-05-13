@@ -126,6 +126,15 @@ export class TasksService {
     return this.scanAll(filters);
   }
 
+  async getTasksByUser(targetUserId: string, requester: RequestUser) {
+    // Managers can view any user's tasks. Employees can only view their own tasks.
+    if (requester.role !== 'manager' && requester.userId !== targetUserId) {
+      throw new ForbiddenException('Access denied to requested user tasks');
+    }
+
+    return this.queryByIndex('assigneeId-index', 'assigneeId', targetUserId, {});
+  }
+
   async findOne(taskId: string, user: RequestUser) {
     const result = await dynamoDB.send(
       new GetCommand({ TableName: TABLES.Tasks, Key: { taskId } }),

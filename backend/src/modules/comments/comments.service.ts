@@ -8,9 +8,11 @@ import {
   GetCommand,
   PutCommand,
   ScanCommand,
+  UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { dynamoDB, TABLES } from '../../config/aws.config';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { UpdateCommentDto } from './dto/update-comment.dto';
 import { v4 as uuidv4 } from 'uuid';
 
 interface RequestUser {
@@ -43,6 +45,31 @@ export class CommentsService {
       }),
     );
     return result.Items || [];
+  }
+
+  async update(commentId: string, dto: UpdateCommentDto, user: RequestUser) {
+    const result = await dynamoDB.send(
+      new GetCommand({ TableName: TABLES.Comments, Key: { commentId } }),
+    );
+    if (!result.Item) throw new NotFoundException(`Comment ${commentId} not found`);
+
+    const comment = result.Item;
+    if (user.role !== 'manager' && comment['authorId'] !== user.userId) {
+      throw new ForbiddenException('You can only edit your own comments');
+    }
+
+    const updated = await dynamoDB.send(
+      new UpdateCommand({
+        TableName: TABLES.Comments,
+        Key: { commentId },
+        UpdateExpression: 'SET #content = :content',
+        ExpressionAttributeNames: { '#content': 'content' },
+        ExpressionAttributeValues: { ':content': dto.content },
+        ReturnValues: 'ALL_NEW',
+      }),
+    );
+
+    return updated.Attributes;
   }
 
   async remove(commentId: string, user: RequestUser) {

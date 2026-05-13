@@ -129,7 +129,7 @@ export class TasksController {
     summary: 'Update a task',
     description:
       'Managers can update any task. Employees can only update tasks assigned to them.\n\n' +
-      'Include a `file` field to replace the attached image (old image deleted from S3 automatically).\n\n' +
+      'Include a `file` field to replace the attached image (the previous version is retained in S3).\n\n' +
       'Setting `status` to `done` deletes the image from S3 and removes `imageKey` from the task.',
   })
   @ApiBody({

@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Patch,
   HttpCode,
   HttpStatus,
   Param,
@@ -13,6 +14,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CommentsService } from './comments.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { UpdateCommentDto } from './dto/update-comment.dto';
 import { CognitoAuthGuard } from '../../common/guards/cognito-auth.guard';
 
 @ApiTags('Comments')
@@ -36,6 +38,17 @@ export class CommentsController {
   @ApiResponse({ status: 200, description: 'Array of comment objects' })
   findByTask(@Param('taskId') taskId: string) {
     return this.commentsService.findByTask(taskId);
+  }
+
+  @Patch(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update a comment', description: 'Manager or the comment author only.' })
+  @ApiParam({ name: 'id', description: 'commentId (UUID)' })
+  @ApiResponse({ status: 200, description: 'Updated comment object' })
+  @ApiResponse({ status: 403, description: 'Not the author or a manager' })
+  @ApiResponse({ status: 404, description: 'Comment not found' })
+  update(@Param('id') id: string, @Body() dto: UpdateCommentDto, @Req() req: any) {
+    return this.commentsService.update(id, dto, req.user);
   }
 
   @Delete(':id')

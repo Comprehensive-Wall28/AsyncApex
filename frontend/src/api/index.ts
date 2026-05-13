@@ -12,12 +12,11 @@ export const api = {
     update: (id: string, data: any) => client.patch(`/tasks/${id}`, data),
     delete: (id: string) => client.delete(`/tasks/${id}`),
   },
-  
+
   auth: {
-    login: (credentials: any) => client.post('/auth/login', credentials),
+    login: (credentials: any) => client.post('/auth/signin', credentials),
     signup: (data: any) => client.post('/auth/signup', data),
-    logout: () => client.post('/auth/logout'),
-    getMe: () => client.get('/auth/me'),
+    logout: (email?: string) => client.post('/auth/signout', { email }),
   },
 
   status: {

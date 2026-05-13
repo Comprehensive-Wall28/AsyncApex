@@ -1,8 +1,11 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, Button, Box, Container } from '@mui/material';
 import { BoltRounded } from '@mui/icons-material';
 
 export const Navbar: React.FC = () => {
+  const navigate = useNavigate();
+
   return (
     <AppBar
       position="fixed"
@@ -76,14 +79,26 @@ export const Navbar: React.FC = () => {
           </Box>
 
           {/* CTA */}
-          <Button
-            variant="contained"
-            color="primary"
-            size="small"
-            sx={{ fontWeight: 700, px: 2.5, py: 1, fontSize: '0.875rem' }}
-          >
-            Get Started
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            <Button
+              variant="outlined"
+              color="primary"
+              size="small"
+              onClick={() => navigate('/login')}
+              sx={{ fontWeight: 600, px: 2.5, py: 1, fontSize: '0.875rem' }}
+            >
+              Log in
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              size="small"
+              onClick={() => navigate('/role-selection')}
+              sx={{ fontWeight: 700, px: 2.5, py: 1, fontSize: '0.875rem' }}
+            >
+              Get Started
+            </Button>
+          </Box>
         </Toolbar>
       </Container>
     </AppBar>

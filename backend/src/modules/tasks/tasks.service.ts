@@ -169,16 +169,9 @@ export class TasksService {
 
     const isMarkingDone = dto.status === 'done' && task['status'] !== 'done';
 
-    // Handle image replacement (skip upload if marking done — image will be deleted)
+    // Handle image replacement (retain the previous image version in S3)
     let newImageKey: string | undefined;
     if (file && !isMarkingDone) {
-      if (task['imageKey']) {
-        try {
-          await this.s3Service.remove(task['imageKey']);
-        } catch (err) {
-          this.logger.warn(`Failed to remove old S3 image for task ${taskId}: ${err}`);
-        }
-      }
       const uploaded = await this.s3Service.upload(file);
       newImageKey = uploaded.key;
     }

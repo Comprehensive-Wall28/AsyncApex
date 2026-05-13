@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
@@ -14,15 +19,26 @@ export class S3Service {
     const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     const key = `uploads/${uuidv4()}-${sanitizedName}`;
 
-    await s3Client.send(
-      new PutObjectCommand({
-        Bucket: BUCKETS.originals,
-        Key: key,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-        ContentLength: file.size,
-      }),
-    );
+    try {
+      await s3Client.send(
+        new PutObjectCommand({
+          Bucket: BUCKETS.originals,
+          Key: key,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+          ContentLength: file.size,
+        }),
+      );
+    } catch (err: any) {
+      const code: string = err?.name ?? err?.Code ?? '';
+      if (code === 'NoSuchBucket') {
+        throw new BadRequestException(`S3 bucket "${BUCKETS.originals}" does not exist`);
+      }
+      if (code === 'AccessDenied') {
+        throw new InternalServerErrorException('S3 access denied — check IAM permissions');
+      }
+      throw new InternalServerErrorException(`S3 upload failed: ${err.message}`);
+    }
 
     const url = await this.getPresignedUrl(key);
     return { key, url };
@@ -37,8 +53,17 @@ export class S3Service {
   }
 
   async remove(key: string): Promise<void> {
-    await s3Client.send(
-      new DeleteObjectCommand({ Bucket: BUCKETS.originals, Key: key }),
-    );
+    try {
+      await s3Client.send(
+        new DeleteObjectCommand({ Bucket: BUCKETS.originals, Key: key }),
+      );
+    } catch (err: any) {
+      const code: string = err?.name ?? err?.Code ?? '';
+      if (code === 'NoSuchKey') throw new NotFoundException(`File "${key}" not found`);
+      if (code === 'AccessDenied') {
+        throw new InternalServerErrorException('S3 access denied — check IAM permissions');
+      }
+      throw new InternalServerErrorException(`S3 delete failed: ${err.message}`);
+    }
   }
 }

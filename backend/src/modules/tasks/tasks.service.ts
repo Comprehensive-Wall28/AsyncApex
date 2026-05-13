@@ -1,0 +1,244 @@
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  DeleteCommand,
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  ScanCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
+import { dynamoDB, TABLES } from '../../config/aws.config';
+import { CreateTaskDto } from './dto/create-task.dto';
+import { UpdateTaskDto } from './dto/update-task.dto';
+import { NotificationsService } from '../notifications/notifications.service';
+import { UsersService } from '../users/users.service';
+import { v4 as uuidv4 } from 'uuid';
+
+interface RequestUser {
+  userId: string;
+  role: string;
+  teamId?: string;
+}
+
+interface TaskFilters {
+  teamId?: string;
+  assigneeId?: string;
+  status?: string;
+  projectId?: string;
+}
+
+@Injectable()
+export class TasksService {
+  private readonly logger = new Logger(TasksService.name);
+
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly usersService: UsersService,
+  ) {}
+
+  async create(dto: CreateTaskDto, user: RequestUser) {
+    const now = new Date().toISOString();
+    const task = {
+      taskId: uuidv4(),
+      title: dto.title,
+      description: dto.description,
+      status: 'todo' as const,
+      priority: dto.priority,
+      deadline: dto.deadline,
+      assigneeId: dto.assigneeId,
+      teamId: dto.teamId,
+      projectId: dto.projectId,
+      imageKey: dto.imageKey,
+      createdBy: user.userId,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await dynamoDB.send(new PutCommand({ TableName: TABLES.Tasks, Item: task }));
+
+    if (dto.assigneeId) {
+      try {
+        const assignee = await this.usersService.findOne(dto.assigneeId);
+        await this.notificationsService.publishTaskAssignment({
+          taskId: task.taskId,
+          taskTitle: dto.title,
+          assigneeEmail: assignee['email'],
+          assigneeName: assignee['name'],
+          teamId: dto.teamId,
+        });
+      } catch (err) {
+        this.logger.warn(`Failed to send assignment notification: ${err}`);
+      }
+    }
+
+    return task;
+  }
+
+  async findAll(user: RequestUser, filters: TaskFilters) {
+    if (user.role !== 'manager') {
+      if (!user.teamId) throw new ForbiddenException('User is not assigned to a team');
+      return this.queryByIndex('teamId-index', 'teamId', user.teamId, {
+        status: filters.status,
+        projectId: filters.projectId,
+      });
+    }
+
+    if (filters.teamId) {
+      return this.queryByIndex('teamId-index', 'teamId', filters.teamId, {
+        assigneeId: filters.assigneeId,
+        status: filters.status,
+        projectId: filters.projectId,
+      });
+    }
+
+    if (filters.assigneeId) {
+      return this.queryByIndex('assigneeId-index', 'assigneeId', filters.assigneeId, {
+        status: filters.status,
+        projectId: filters.projectId,
+      });
+    }
+
+    return this.scanAll(filters);
+  }
+
+  async findOne(taskId: string, user: RequestUser) {
+    const result = await dynamoDB.send(
+      new GetCommand({ TableName: TABLES.Tasks, Key: { taskId } }),
+    );
+    if (!result.Item) throw new NotFoundException(`Task ${taskId} not found`);
+
+    const task = result.Item;
+    if (user.role !== 'manager' && task['teamId'] !== user.teamId) {
+      throw new ForbiddenException('Access denied to this task');
+    }
+    return task;
+  }
+
+  async update(taskId: string, dto: UpdateTaskDto, user: RequestUser) {
+    const task = await this.findOne(taskId, user);
+
+    if (user.role !== 'manager' && task['assigneeId'] !== user.userId) {
+      throw new ForbiddenException('Only the assigned employee or a manager can update this task');
+    }
+
+    const updates = Object.entries({
+      ...dto,
+      updatedAt: new Date().toISOString(),
+    }).filter(([, v]) => v !== undefined);
+
+    const expression = 'SET ' + updates.map((_, i) => `#u${i} = :u${i}`).join(', ');
+    const names = Object.fromEntries(updates.map(([k], i) => [`#u${i}`, k]));
+    const values = Object.fromEntries(updates.map(([, v], i) => [`:u${i}`, v]));
+
+    const result = await dynamoDB.send(
+      new UpdateCommand({
+        TableName: TABLES.Tasks,
+        Key: { taskId },
+        UpdateExpression: expression,
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
+        ReturnValues: 'ALL_NEW',
+      }),
+    );
+
+    if (dto.status && dto.status !== task['status']) {
+      await this.logStatusChange(taskId, user.userId, task['status'], dto.status);
+    }
+
+    return result.Attributes;
+  }
+
+  async remove(taskId: string, user: RequestUser) {
+    await this.findOne(taskId, user);
+    await dynamoDB.send(new DeleteCommand({ TableName: TABLES.Tasks, Key: { taskId } }));
+  }
+
+  private async queryByIndex(
+    indexName: string,
+    keyName: string,
+    keyValue: string,
+    extraFilters: Record<string, string | undefined>,
+  ) {
+    const filterEntries = Object.entries(extraFilters).filter(
+      ([, v]) => v !== undefined,
+    ) as [string, string][];
+
+    const names: Record<string, string> = { '#pk': keyName };
+    const values: Record<string, any> = { ':pk': keyValue };
+
+    let filterExpression: string | undefined;
+    if (filterEntries.length > 0) {
+      filterEntries.forEach(([k, v], i) => {
+        names[`#f${i}`] = k;
+        values[`:f${i}`] = v;
+      });
+      filterExpression = filterEntries.map((_, i) => `#f${i} = :f${i}`).join(' AND ');
+    }
+
+    const result = await dynamoDB.send(
+      new QueryCommand({
+        TableName: TABLES.Tasks,
+        IndexName: indexName,
+        KeyConditionExpression: '#pk = :pk',
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
+        ...(filterExpression ? { FilterExpression: filterExpression } : {}),
+      }),
+    );
+    return result.Items || [];
+  }
+
+  private async scanAll(filters: TaskFilters) {
+    const filterEntries = Object.entries(filters).filter(
+      ([, v]) => v !== undefined,
+    ) as [string, string][];
+
+    if (filterEntries.length === 0) {
+      const result = await dynamoDB.send(new ScanCommand({ TableName: TABLES.Tasks }));
+      return result.Items || [];
+    }
+
+    const names: Record<string, string> = {};
+    const values: Record<string, any> = {};
+    filterEntries.forEach(([k, v], i) => {
+      names[`#f${i}`] = k;
+      values[`:f${i}`] = v;
+    });
+    const filterExpression = filterEntries.map((_, i) => `#f${i} = :f${i}`).join(' AND ');
+
+    const result = await dynamoDB.send(
+      new ScanCommand({
+        TableName: TABLES.Tasks,
+        FilterExpression: filterExpression,
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
+      }),
+    );
+    return result.Items || [];
+  }
+
+  private async logStatusChange(
+    taskId: string,
+    changedBy: string,
+    oldStatus: string,
+    newStatus: string,
+  ) {
+    await dynamoDB.send(
+      new PutCommand({
+        TableName: TABLES.ActivityLog,
+        Item: {
+          taskId,
+          timestamp: new Date().toISOString(),
+          changedBy,
+          oldStatus,
+          newStatus,
+        },
+      }),
+    );
+  }
+}

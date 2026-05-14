@@ -19,13 +19,12 @@ export const Navbar: React.FC = () => {
         maxWidth: '1100px',
         borderRadius: '9999px',
         // ── Glassmorphism surface ──────────────────────────────────────────
-        backgroundColor: 'rgba(13, 17, 26, 0.65)',
+        backgroundColor: 'rgba(13, 17, 26, 0.92)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
-        border: '1px solid rgba(148, 163, 184, 0.15)',
-        boxShadow: '0 4px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(148,163,184,0.05)',
+        border: '1px solid rgba(148, 163, 184, 0.35)',
+        boxShadow: '0 0 0 1px rgba(96,165,250,0.08), 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
         // ── Override theme AppBar defaults for this component ──────────────
-        borderBottom: 'none',
         zIndex: 1100,
       }}
     >

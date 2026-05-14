@@ -2,19 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Box, Typography, Card, Avatar, Chip, Stack, CircularProgress } from '@mui/material';
 import api from '../api';
 import type { Task } from '../api/interface';
+import { tokens } from '../theme/theme';
 
 interface TaskBoardProps {
   teamId?: string;
   role: 'manager' | 'employee';
 }
 
-const getPriorityColor = (priority: string) => {
-  switch (priority) {
-    case 'high': return 'error';
-    case 'medium': return 'warning';
-    case 'low': return 'success';
-    default: return 'default';
-  }
+// Priority colour mapping references centralized tokens.
+const priorityColorMap: Record<string, string> = {
+  high:   tokens.errorMain,
+  medium: tokens.warningMain,
+  low:    tokens.successMain,
 };
 
 export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role }) => {
@@ -33,27 +32,21 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role }) => {
     }
   };
 
-  useEffect(() => {
-    fetchTasks();
-  }, [teamId, role]);
+  useEffect(() => { fetchTasks(); }, [teamId, role]);
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     e.dataTransfer.setData('taskId', taskId);
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault(); // allow drop
-  };
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); };
 
   const handleDrop = async (e: React.DragEvent, newStatus: Task['status']) => {
     e.preventDefault();
     const taskId = e.dataTransfer.getData('taskId');
     if (!taskId) return;
-
     const task = tasks.find(t => t.taskId === taskId);
     if (!task || task.status === newStatus) return;
 
-    // Optimistic update
     setTasks(prev => prev.map(t => t.taskId === taskId ? { ...t, status: newStatus } : t));
 
     try {
@@ -64,7 +57,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role }) => {
       else await api.tasks.update(taskId, { status: newStatus });
     } catch (error) {
       console.error('Failed to update status', error);
-      fetchTasks(); // Revert on failure
+      fetchTasks();
     }
   };
 
@@ -78,72 +71,87 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role }) => {
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}><CircularProgress /></Box>;
 
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(4, 1fr)' }, gap: 3 }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(4, 1fr)' }, gap: 2.5 }}>
       {columns.map(col => (
         <Box
           key={col.id}
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, col.id)}
           sx={{
-            background: 'rgba(255,255,255,0.02)',
-            borderRadius: '16px',
+            bgcolor: 'background.paper',
+            borderRadius: '8px',
             p: 2,
             minHeight: 500,
-            border: '1px solid rgba(139, 92, 246, 0.1)',
+            border: '1px solid',
+            borderColor: 'divider',
           }}
         >
-          <Typography variant="h6" sx={{ mb: 2, px: 1, fontSize: '1.1rem', color: 'text.secondary' }}>
-            {col.title} <Typography component="span" sx={{ fontSize: '0.8rem', opacity: 0.5 }}>({tasks.filter(t => t.status === col.id).length})</Typography>
+          <Typography variant="h6" sx={{ mb: 2, px: 0.5, fontSize: '0.9rem', fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {col.title}{' '}
+            <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.6 }}>
+              ({tasks.filter(t => t.status === col.id).length})
+            </Typography>
           </Typography>
 
-          <Stack spacing={2}>
-            {tasks.filter(t => t.status === col.id).map(task => (
-              <Card
-                key={task.taskId}
-                draggable
-                onDragStart={(e) => handleDragStart(e, task.taskId)}
-                sx={{
-                  p: 2,
-                  cursor: 'grab',
-                  background: 'rgba(13, 13, 26, 0.7)',
-                  border: '1px solid rgba(255,255,255,0.07)',
-                  borderRadius: '12px',
-                  '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 8px 24px rgba(0,0,0,0.3)' },
-                }}
-              >
-                {task.imageKey && (
-                  <Box
-                    sx={{
-                      width: '100%',
-                      height: 100,
-                      borderRadius: '8px',
-                      mb: 2,
-                      background: 'rgba(139, 92, 246, 0.1)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'text.secondary',
-                      fontSize: '0.8rem'
-                    }}
-                  >
-                    [S3 Image Placeholder]
+          <Stack spacing={1.5}>
+            {tasks.filter(t => t.status === col.id).map(task => {
+              const priorityColor = priorityColorMap[task.priority] || tokens.textSecondary;
+              return (
+                <Card
+                  key={task.taskId}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, task.taskId)}
+                  sx={{
+                    p: 1.5,
+                    cursor: 'grab',
+                    transition: 'box-shadow 0.2s ease',
+                    '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.3)' },
+                  }}
+                >
+                  {task.imageKey && (
+                    <Box
+                      sx={{
+                        width: '100%',
+                        height: 80,
+                        borderRadius: '6px',
+                        mb: 1.5,
+                        bgcolor: 'action.hover',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'text.secondary',
+                        fontSize: '0.75rem',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                      }}
+                    >
+                      [S3 Image]
+                    </Box>
+                  )}
+                  <Typography sx={{ fontWeight: 600, mb: 1.5, fontSize: '0.875rem', color: 'text.primary' }}>
+                    {task.title}
+                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Chip
+                      label={task.priority.toUpperCase()}
+                      size="small"
+                      sx={{
+                        height: 20,
+                        fontSize: '0.65rem',
+                        fontWeight: 700,
+                        color: priorityColor,
+                        bgcolor: `${priorityColor}1A`,
+                        border: `1px solid ${priorityColor}33`,
+                        '& .MuiChip-label': { px: 1 },
+                      }}
+                    />
+                    <Avatar sx={{ width: 22, height: 22, bgcolor: 'primary.dark', fontSize: '0.65rem', fontWeight: 700 }}>
+                      {task.assigneeId ? task.assigneeId.substring(0, 2).toUpperCase() : '?'}
+                    </Avatar>
                   </Box>
-                )}
-                <Typography sx={{ fontWeight: 600, mb: 1, fontSize: '0.95rem' }}>{task.title}</Typography>
-
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-                  <Chip
-                    label={task.priority.toUpperCase()}
-                    size="small"
-                    color={getPriorityColor(task.priority) as any}
-                    sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }}
-                  />
-                  <Avatar sx={{ width: 24, height: 24, bgcolor: 'primary.dark', fontSize: '0.7rem' }}>
-                    {task.assigneeId ? task.assigneeId.substring(0, 2).toUpperCase() : '?'}
-                  </Avatar>
-                </Box>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </Stack>
         </Box>
       ))}

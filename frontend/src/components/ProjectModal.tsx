@@ -6,7 +6,7 @@ import {
   DialogActions,
   Button,
   TextField,
-  Typography,
+  Alert,
 } from '@mui/material';
 import api from '../api';
 
@@ -52,30 +52,11 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ open, onClose, proje
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      sx={{
-        '& .MuiDialog-paper': {
-          background: 'rgba(20, 20, 35, 0.85)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(139, 92, 246, 0.3)',
-          borderRadius: 3,
-          minWidth: 400,
-          color: 'text.primary',
-        }
-      }}
-    >
-      <DialogTitle sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)', pb: 2 }}>
-        {project ? 'Edit Project' : 'Create Project'}
-      </DialogTitle>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>{project ? 'Edit Project' : 'Create Project'}</DialogTitle>
       <form onSubmit={handleSubmit}>
-        <DialogContent sx={{ mt: 2 }}>
-          {error && (
-            <Typography color="error" variant="body2" sx={{ mb: 2 }}>
-              {error}
-            </Typography>
-          )}
+        <DialogContent sx={{ pt: 2.5 }}>
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           <TextField
             fullWidth
             label="Project Name"
@@ -95,7 +76,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ open, onClose, proje
             onChange={(e) => setDescription(e.target.value)}
           />
         </DialogContent>
-        <DialogActions sx={{ p: 3, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <DialogActions>
           <Button onClick={onClose} color="inherit" disabled={loading}>
             Cancel
           </Button>

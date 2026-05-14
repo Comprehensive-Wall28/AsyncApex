@@ -18,23 +18,23 @@ export const Projects: React.FC = () => {
   if (loading) return null; // Or a spinner
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', background: '#06060F', position: 'relative', overflow: 'hidden' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
       <CollapsibleSidebar userName={user?.name} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
 
       <Box
         sx={{
           flexGrow: 1,
-          ml: sidebarCollapsed ? '80px' : '260px',
-          transition: 'margin-left 0.3s ease',
-          width: `calc(100% - ${sidebarCollapsed ? 80 : 260}px)`,
+          ml: sidebarCollapsed ? '64px' : '240px',
+          transition: 'margin-left 0.25s ease',
+          width: `calc(100% - ${sidebarCollapsed ? 64 : 240}px)`,
           pb: 10,
         }}
       >
-        <Container maxWidth="xl" sx={{ mt: 8, position: 'relative', zIndex: 1 }}>
+        <Container maxWidth="xl" sx={{ mt: 8 }}>
           {/* Command Header */}
           <Box sx={{ mb: 6, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 3 }}>
             <Box>
-              <Typography variant="h1" sx={{ fontSize: { xs: '2rem', md: '3rem' }, mb: 1, background: 'linear-gradient(135deg, #F1F0FF 0%, #06B6D4 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              <Typography variant="h1" sx={{ fontSize: { xs: '2rem', md: '2.75rem' }, mb: 1, color: 'text.primary' }}>
                 Welcome back, {firstName}
               </Typography>
               <Typography sx={{ color: 'text.secondary', fontSize: '1.1rem' }}>
@@ -73,10 +73,10 @@ export const Projects: React.FC = () => {
             <Box sx={{ mt: 8 }}>
               <Typography variant="h4" sx={{ mb: 4, fontWeight: 700 }}>Monitor Analytics</Typography>
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 4 }}>
-                <Box sx={{ height: 300, background: 'rgba(13,13,26,0.5)', borderRadius: 4, border: '1px solid rgba(139,92,246,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary' }}>
+                <Box sx={{ height: 300, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary' }}>
                   [Tasks Created vs. Closed Chart Simulation]
                 </Box>
-                <Box sx={{ height: 300, background: 'rgba(13,13,26,0.5)', borderRadius: 4, border: '1px solid rgba(139,92,246,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary' }}>
+                <Box sx={{ height: 300, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary' }}>
                   [Average Time-to-Close Chart Simulation]
                 </Box>
               </Box>

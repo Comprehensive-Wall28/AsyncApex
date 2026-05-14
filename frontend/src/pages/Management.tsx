@@ -90,28 +90,28 @@ export const Management: React.FC = () => {
 
   if (!isManager) {
     return (
-      <Box sx={{ display: 'flex', minHeight: '100vh', background: '#06060F', alignItems: 'center', justifyContent: 'center' }}>
+      <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default', alignItems: 'center', justifyContent: 'center' }}>
         <Typography variant="h4" color="error">Access Denied. Managers only.</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', background: '#06060F', position: 'relative', overflow: 'hidden' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
       <CollapsibleSidebar userName={user?.name} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
 
       <Box
         sx={{
           flexGrow: 1,
-          ml: sidebarCollapsed ? '80px' : '260px',
-          transition: 'margin-left 0.3s ease',
-          width: `calc(100% - ${sidebarCollapsed ? 80 : 260}px)`,
+          ml: sidebarCollapsed ? '64px' : '240px',
+          transition: 'margin-left 0.25s ease',
+          width: `calc(100% - ${sidebarCollapsed ? 64 : 240}px)`,
           pb: 10,
         }}
       >
         <Container maxWidth="xl" sx={{ mt: 8 }}>
           <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h1" sx={{ fontSize: '2.5rem', background: 'linear-gradient(135deg, #F1F0FF 0%, #06B6D4 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <Typography variant="h1" sx={{ fontSize: '2.25rem', color: 'text.primary', fontWeight: 800 }}>
               Management Console
             </Typography>
             {tabValue === 0 ? (
@@ -128,7 +128,7 @@ export const Management: React.FC = () => {
           <Tabs
             value={tabValue}
             onChange={(_, newValue) => setTabValue(newValue)}
-            sx={{ borderBottom: '1px solid rgba(139, 92, 246, 0.18)', mb: 4 }}
+            sx={{ mb: 4 }}
           >
             <Tab label="Teams" sx={{ fontWeight: 'bold' }} />
             <Tab label="Projects" sx={{ fontWeight: 'bold' }} />
@@ -139,7 +139,7 @@ export const Management: React.FC = () => {
               <CircularProgress />
             </Box>
           ) : (
-            <TableContainer component={Paper} sx={{ background: 'rgba(20, 20, 35, 0.5)', backdropFilter: 'blur(10px)', border: '1px solid rgba(139, 92, 246, 0.18)' }}>
+            <TableContainer component={Paper} sx={{ border: '1px solid', borderColor: 'divider' }}>
               <Table>
                 <TableHead>
                   <TableRow>

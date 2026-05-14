@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
-import { Box, Typography, TextField, Button, Alert, Stack } from '@mui/material';
+import {
+  Box,
+  Typography,
+  TextField,
+  Button,
+  Alert,
+  Stack,
+  Divider,
+} from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { BoltRounded, LockOpenRounded } from '@mui/icons-material';
+import { BoltRounded, LockOutlined, FlashOnOutlined } from '@mui/icons-material';
 import api from '../api';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
 
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
+  const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -39,48 +44,62 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex' }}>
-      {/* Left Column - Form */}
+    <Box sx={{ minHeight: '100vh', display: 'flex', bgcolor: 'background.default' }}>
+      {/* Left Column — Form */}
       <Box
         sx={{
-          flex: { xs: 1, md: '0 0 500px' },
+          flex: { xs: 1, md: '0 0 480px' },
           display: 'flex',
           flexDirection: 'column',
-          px: { xs: 4, md: 8 },
-          py: 6,
-          background: '#06060F',
+          px: { xs: 4, md: 7 },
+          py: 5,
+          bgcolor: 'background.paper',
+          borderRight: { md: '1px solid' },
+          borderColor: { md: 'divider' },
           zIndex: 1,
-          borderRight: { md: '1px solid rgba(139,92,246,0.12)' },
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 12, cursor: 'pointer' }} onClick={() => navigate('/')}>
+        {/* Logo */}
+        <Box
+          sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 10, cursor: 'pointer' }}
+          onClick={() => navigate('/')}
+        >
           <Box
             sx={{
-              width: 32,
-              height: 32,
+              width: 30,
+              height: 30,
               borderRadius: '8px',
-              background: 'linear-gradient(135deg, #7C3AED 0%, #06B6D4 100%)',
+              bgcolor: 'primary.main',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <BoltRounded sx={{ color: '#fff', fontSize: 20 }} />
+            <BoltRounded sx={{ color: '#fff', fontSize: 18 }} />
           </Box>
-          <Typography sx={{ fontWeight: 800, fontSize: '1.2rem', color: 'text.primary' }}>
+          <Typography sx={{ fontWeight: 700, fontSize: '1.05rem', color: 'text.primary' }}>
             AsyncApex
           </Typography>
         </Box>
 
-        <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', maxWidth: 400, width: '100%' }}>
-          <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, color: '#F1F0FF' }}>
+        <Box
+          sx={{
+            flexGrow: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            maxWidth: 380,
+            width: '100%',
+          }}
+        >
+          <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.75, color: 'text.primary' }}>
             Welcome back
           </Typography>
-          <Typography sx={{ color: 'text.secondary', mb: 5 }}>
+          <Typography sx={{ color: 'text.secondary', mb: 4 }}>
             Access your enterprise dashboard and manage your workflows.
           </Typography>
 
-          {error && <Alert severity="error" sx={{ mb: 3, borderRadius: '12px' }}>{error}</Alert>}
+          {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
           <form onSubmit={handleSubmit}>
             <TextField
@@ -92,7 +111,7 @@ export const Login: React.FC = () => {
               fullWidth
               required
               variant="outlined"
-              sx={{ mb: 3 }}
+              sx={{ mb: 2.5 }}
             />
             <TextField
               label="Password"
@@ -103,95 +122,106 @@ export const Login: React.FC = () => {
               fullWidth
               required
               variant="outlined"
-              sx={{ mb: 4 }}
+              sx={{ mb: 3 }}
             />
-            
             <Button
               type="submit"
               variant="contained"
               fullWidth
               size="large"
               disabled={loading}
-              sx={{
-                py: 1.5,
-                background: 'linear-gradient(135deg, #7C3AED, #6D28D9)',
-                fontSize: '1rem',
-                fontWeight: 700,
-              }}
+              sx={{ py: 1.4, fontSize: '1rem', fontWeight: 700 }}
             >
               {loading ? 'Authenticating...' : 'Log in'}
             </Button>
           </form>
 
-          <Box sx={{ mt: 4, textAlign: 'center' }}>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Don't have an account?{' '}
-              <Box component="span" onClick={() => navigate('/role-selection')} sx={{ color: '#A78BFA', cursor: 'pointer', fontWeight: 600, '&:hover': { color: '#C4B5FD' } }}>
-                Sign up
-              </Box>
-            </Typography>
-          </Box>
+          <Divider sx={{ my: 3 }} />
+
+          <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center' }}>
+            Don't have an account?{' '}
+            <Box
+              component="span"
+              onClick={() => navigate('/role-selection')}
+              sx={{ color: 'primary.light', cursor: 'pointer', fontWeight: 600, '&:hover': { color: 'primary.main' } }}
+            >
+              Sign up
+            </Box>
+          </Typography>
         </Box>
       </Box>
 
-      {/* Right Column - Hero */}
+      {/* Right Column — Brand Panel */}
       <Box
         sx={{
           display: { xs: 'none', md: 'flex' },
           flex: 1,
-          position: 'relative',
-          background: '#0D0D1A',
-          overflow: 'hidden',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           p: 8,
+          bgcolor: 'background.default',
+          gap: 4,
         }}
       >
-        {/* Animated Background Orb */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '80vw',
-            height: '80vw',
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(139,92,246,0.08) 0%, rgba(6,182,212,0.04) 40%, transparent 60%)',
-            zIndex: 0,
-          }}
-        />
-        
-        <Box sx={{ position: 'relative', zIndex: 1, maxWidth: 500 }}>
+        <Box sx={{ maxWidth: 460 }}>
           <Typography
             variant="h3"
-            sx={{
-              fontWeight: 900,
-              mb: 3,
-              background: 'linear-gradient(135deg, #F1F0FF 0%, #C4B5FD 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              lineHeight: 1.2,
-            }}
+            sx={{ fontWeight: 900, mb: 2, color: 'text.primary', lineHeight: 1.15 }}
           >
-            The future of asynchronous productivity.
+            The future of asynchronous{' '}
+            <Box component="span" sx={{ color: 'secondary.main' }}>
+              productivity.
+            </Box>
           </Typography>
-          
-          <Stack spacing={3} sx={{ mt: 4 }}>
-            <Box>
-              <Box sx={{ p: 3, background: 'rgba(13,13,26,0.6)', backdropFilter: 'blur(10px)', border: '1px solid rgba(139,92,246,0.15)', borderRadius: '16px' }}>
-                <Typography sx={{ color: '#A78BFA', fontWeight: 600, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <LockOpenRounded fontSize="small" /> Secure Access
+          <Typography sx={{ color: 'text.secondary', lineHeight: 1.7, mb: 5 }}>
+            Enterprise-grade task orchestration with 99.99% uptime, event-driven architecture, and fine-grained access control.
+          </Typography>
+
+          <Stack spacing={2}>
+            <Box
+              sx={{
+                p: 2.5,
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 2,
+              }}
+            >
+              <Box sx={{ p: 1, bgcolor: 'action.selected', borderRadius: '6px', color: 'primary.light', display: 'flex' }}>
+                <LockOutlined fontSize="small" />
+              </Box>
+              <Box>
+                <Typography sx={{ fontWeight: 600, mb: 0.5, color: 'text.primary', fontSize: '0.9rem' }}>
+                  Secure Access
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                   Enterprise-grade authentication with end-to-end encryption for your data.
                 </Typography>
               </Box>
             </Box>
-            <Box>
-              <Box sx={{ p: 3, background: 'rgba(13,13,26,0.6)', backdropFilter: 'blur(10px)', border: '1px solid rgba(6,182,212,0.15)', borderRadius: '16px' }}>
-                <Typography sx={{ color: '#67E8F9', fontWeight: 600, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <BoltRounded fontSize="small" /> Lightning Fast
+
+            <Box
+              sx={{
+                p: 2.5,
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 2,
+              }}
+            >
+              <Box sx={{ p: 1, bgcolor: 'action.selected', borderRadius: '6px', color: 'secondary.main', display: 'flex' }}>
+                <FlashOnOutlined fontSize="small" />
+              </Box>
+              <Box>
+                <Typography sx={{ fontWeight: 600, mb: 0.5, color: 'text.primary', fontSize: '0.9rem' }}>
+                  Lightning Fast
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                   Optimized for speed, giving you instant access to your tasks and team.

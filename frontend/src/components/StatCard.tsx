@@ -14,43 +14,39 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, t
     <Card
       sx={{
         p: 3,
-        background: 'rgba(13, 13, 26, 0.5)',
-        backdropFilter: 'blur(10px)',
-        border: '1px solid rgba(139, 92, 246, 0.18)',
-        borderRadius: '16px',
         display: 'flex',
         alignItems: 'center',
-        gap: 3,
-        transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+        gap: 2.5,
+        transition: 'box-shadow 0.2s ease',
         '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: '0 8px 24px rgba(139, 92, 246, 0.15)',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
         },
       }}
     >
       <Box
         sx={{
-          width: 56,
-          height: 56,
-          borderRadius: '12px',
-          background: 'rgba(139, 92, 246, 0.1)',
+          width: 48,
+          height: 48,
+          borderRadius: '8px',
+          bgcolor: 'action.selected',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           color: 'primary.main',
+          flexShrink: 0,
         }}
       >
         {icon}
       </Box>
       <Box>
-        <Typography sx={{ color: 'text.secondary', fontSize: '0.9rem', fontWeight: 600, mb: 0.5 }}>
+        <Typography sx={{ color: 'text.secondary', fontSize: '0.8rem', fontWeight: 600, mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           {title}
         </Typography>
         <Typography sx={{ color: 'text.primary', fontSize: '1.8rem', fontWeight: 800, lineHeight: 1 }}>
           {value}
         </Typography>
         {trend && (
-          <Typography sx={{ color: trendColor, fontSize: '0.8rem', fontWeight: 600, mt: 1 }}>
+          <Typography sx={{ color: trendColor, fontSize: '0.8rem', fontWeight: 600, mt: 0.75 }}>
             {trend}
           </Typography>
         )}

@@ -8,6 +8,9 @@ export interface Task {
     status: TaskStatus;
     priority: TaskPriority;
     assigneeId?: string;
+    teamId?: string;
+    projectId?: string;
+    deadline?: Date | string;
     imageKey?: string;
 }
 

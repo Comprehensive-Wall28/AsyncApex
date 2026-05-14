@@ -7,6 +7,8 @@ import { tokens } from '../theme/theme';
 interface TaskBoardProps {
   teamId?: string;
   role: 'manager' | 'employee';
+  refreshKey?: number;
+  onTaskClick?: (task: Task) => void;
 }
 
 // Priority colour mapping references centralized tokens.
@@ -16,7 +18,7 @@ const priorityColorMap: Record<string, string> = {
   low:    tokens.successMain,
 };
 
-export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role }) => {
+export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, onTaskClick }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,7 +34,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role }) => {
     }
   };
 
-  useEffect(() => { fetchTasks(); }, [teamId, role]);
+  useEffect(() => { fetchTasks(); }, [teamId, role, refreshKey]);
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     e.dataTransfer.setData('taskId', taskId);
@@ -101,6 +103,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role }) => {
                   key={task.taskId}
                   draggable
                   onDragStart={(e) => handleDragStart(e, task.taskId)}
+                  onClick={() => onTaskClick?.(task)}
                   sx={{
                     p: 1.5,
                     cursor: 'grab',

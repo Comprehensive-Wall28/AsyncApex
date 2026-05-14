@@ -94,6 +94,21 @@ export const api = {
 
   status: {
     check: () => client.get('/status'),
+  },
+
+  s3: {
+    upload: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = localStorage.getItem('idToken');
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || '/api/v1'}/s3/upload`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Failed to upload file');
+      return res.json();
+    }
   }
 };
 

@@ -1,12 +1,18 @@
-
+import React, { useState } from 'react';
 import { Box, Typography, Button, Container, Stack } from '@mui/material';
 import { AddRounded, AssessmentRounded, CheckCircleRounded, TrendingUpRounded } from '@mui/icons-material';
 import { StatCard } from '../components/StatCard';
 import { TaskBoard } from '../components/TaskBoard';
+import { TaskModal } from '../components/TaskModal';
 import { useAuth } from '../hooks/useAuth';
+import type { Task } from '../api/interface';
 
 export const MainDashboard: React.FC = () => {
   const { user, loading } = useAuth();
+  
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | undefined>(undefined);
+  const [boardRefreshKey, setBoardRefreshKey] = useState(0);
 
   if (loading) return null;
 
@@ -31,7 +37,7 @@ export const MainDashboard: React.FC = () => {
             <Button variant="outlined" startIcon={<AssessmentRounded />}>
               New Project
             </Button>
-            <Button variant="contained" startIcon={<AddRounded />}>
+            <Button variant="contained" startIcon={<AddRounded />} onClick={() => { setSelectedTask(undefined); setIsTaskModalOpen(true); }}>
               New Task
             </Button>
           </Stack>
@@ -49,10 +55,17 @@ export const MainDashboard: React.FC = () => {
 
       {/* Nexus Kanban Board */}
       <Box sx={{ mb: 6 }}>
-        <TaskBoard teamId={user?.teamId} role={user?.role || 'employee'} />
+        <TaskBoard 
+          teamId={user?.teamId} 
+          role={user?.role || 'employee'} 
+          refreshKey={boardRefreshKey}
+          onTaskClick={(task) => {
+            setSelectedTask(task);
+            setIsTaskModalOpen(true);
+          }}
+        />
       </Box>
 
-      {/* Monitor Analytics (Manager Only) */}
       {isManager && (
         <Box sx={{ mt: 8 }}>
           <Typography variant="h4" sx={{ mb: 4, fontWeight: 700 }}>Monitor Analytics</Typography>
@@ -66,6 +79,13 @@ export const MainDashboard: React.FC = () => {
           </Box>
         </Box>
       )}
+
+      <TaskModal 
+        open={isTaskModalOpen} 
+        onClose={() => setIsTaskModalOpen(false)} 
+        onSave={() => setBoardRefreshKey(prev => prev + 1)}
+        task={selectedTask}
+      />
     </Container>
   );
 };

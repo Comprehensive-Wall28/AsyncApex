@@ -8,14 +8,7 @@ interface ProjectBoxProps {
     role: 'manager' | 'employee';
 }
 
-const getPriorityColor = (priority: string) => {
-    switch (priority) {
-        case 'high': return 'error';
-        case 'medium': return 'warning';
-        case 'low': return 'success';
-        default: return 'default';
-    }
-};
+// Removed getPriorityColor
 
 export const ProjectBox: React.FC<ProjectBoxProps> = ({ teamId, role }) => {
     const [projects, setProjects] = useState<Project[]>([]);

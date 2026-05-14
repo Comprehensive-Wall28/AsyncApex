@@ -9,6 +9,7 @@ import { MainDashboard } from './pages/MainDashboard'
 import { Projects } from './pages/Projects'
 import { Teams } from './pages/Teams'
 import { NewProject } from './pages/NewProject'
+import { Management } from './pages/Management'
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/new" element={<NewProject />} />
           <Route path="/teams" element={<Teams />} />
+          <Route path="/management" element={<Management />} />
         </Routes>
       </BrowserRouter>
     </AppThemeProvider>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Box, Typography, IconButton, Tooltip, Avatar } from '@mui/material';
 import {
   BoltRounded,
@@ -10,6 +10,8 @@ import {
   GroupRounded,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { SettingsRounded } from '@mui/icons-material';
+import { useAuth } from '../hooks/useAuth';
 import api from '../api';
 
 interface SidebarProps {
@@ -21,6 +23,7 @@ interface SidebarProps {
 export const CollapsibleSidebar: React.FC<SidebarProps> = ({ userName, collapsed, onToggle }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
 
   const handleLogout = async () => {
     try {
@@ -40,6 +43,10 @@ export const CollapsibleSidebar: React.FC<SidebarProps> = ({ userName, collapsed
     { label: 'Projects', icon: <AssignmentRounded />, path: '/projects' },
     { label: 'Teams', icon: <GroupRounded />, path: '/teams' },
   ];
+
+  if (user?.role === 'manager') {
+    navItems.push({ label: 'Management', icon: <SettingsRounded />, path: '/management' });
+  }
 
   return (
     <Box

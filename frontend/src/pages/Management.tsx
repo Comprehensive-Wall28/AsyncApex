@@ -19,15 +19,16 @@ import {
 import { AddRounded, EditRounded, DeleteRounded, SwapHorizRounded } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import { TeamModal } from '../components/TeamModal';
-import { ProjectModal } from '../components/ProjectModal';
 import { ChangeTeamModal } from '../components/ChangeTeamModal';
 import api from '../api';
 import type { User } from '../api/interface';
 import { Chip } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 
 export const Management: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const [tabValue, setTabValue] = useState(0);
+  const navigate = useNavigate();
 
   const [teams, setTeams] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
@@ -37,9 +38,6 @@ export const Management: React.FC = () => {
   // Modal states
   const [teamModalOpen, setTeamModalOpen] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<any | null>(null);
-
-  const [projectModalOpen, setProjectModalOpen] = useState(false);
-  const [selectedProject, setSelectedProject] = useState<any | null>(null);
 
   const [changeTeamModalOpen, setChangeTeamModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -115,12 +113,12 @@ export const Management: React.FC = () => {
           Management Console
         </Typography>
         {tabValue === 0 && (
-          <Button variant="contained" startIcon={<AddRounded />} onClick={() => { setSelectedTeam(null); setTeamModalOpen(true); }}>
+          <Button variant="contained" startIcon={<AddRounded />} onClick={() => { navigate('/teams/new') }}>
             Create Team
           </Button>
         )}
         {tabValue === 1 && (
-          <Button variant="contained" startIcon={<AddRounded />} onClick={() => { setSelectedProject(null); setProjectModalOpen(true); }}>
+          <Button variant="contained" startIcon={<AddRounded />} onClick={() => { navigate('/projects/new') }}>
             Create Project
           </Button>
         )}
@@ -191,7 +189,7 @@ export const Management: React.FC = () => {
                   </TableCell>
                   <TableCell sx={{ color: 'text.secondary' }}>{project.description || '-'}</TableCell>
                   <TableCell align="right">
-                    <IconButton color="primary" onClick={() => { setSelectedProject(project); setProjectModalOpen(true); }}>
+                    <IconButton color="primary" onClick={() => { navigate(`/projects/edit/${project.projectId}`); }}>
                       <EditRounded />
                     </IconButton>
                     <IconButton color="error" onClick={() => handleDeleteProject(project.projectId)}>
@@ -251,12 +249,6 @@ export const Management: React.FC = () => {
         open={teamModalOpen}
         onClose={() => setTeamModalOpen(false)}
         team={selectedTeam}
-        onSuccess={fetchData}
-      />
-      <ProjectModal
-        open={projectModalOpen}
-        onClose={() => setProjectModalOpen(false)}
-        project={selectedProject}
         onSuccess={fetchData}
       />
       <ChangeTeamModal

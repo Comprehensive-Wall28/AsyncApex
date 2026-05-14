@@ -5,11 +5,13 @@ import { StatCard } from '../components/StatCard';
 import { TaskBoard } from '../components/TaskBoard';
 import { TaskModal } from '../components/TaskModal';
 import { useAuth } from '../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 import type { Task } from '../api/interface';
+import { chartBoxSx } from '../styles/style';
 
 export const MainDashboard: React.FC = () => {
   const { user, loading } = useAuth();
-  
+  const navigate = useNavigate();
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | undefined>(undefined);
   const [boardRefreshKey, setBoardRefreshKey] = useState(0);
@@ -34,7 +36,7 @@ export const MainDashboard: React.FC = () => {
 
         {isManager && (
           <Stack direction="row" spacing={2}>
-            <Button variant="outlined" startIcon={<AssessmentRounded />}>
+            <Button variant="outlined" startIcon={<AssessmentRounded />} onClick={() => { navigate('/projects/new') }}>
               New Project
             </Button>
             <Button variant="contained" startIcon={<AddRounded />} onClick={() => { setSelectedTask(undefined); setIsTaskModalOpen(true); }}>
@@ -55,9 +57,9 @@ export const MainDashboard: React.FC = () => {
 
       {/* Nexus Kanban Board */}
       <Box sx={{ mb: 6 }}>
-        <TaskBoard 
-          teamId={user?.teamId} 
-          role={user?.role || 'employee'} 
+        <TaskBoard
+          teamId={user?.teamId}
+          role={user?.role || 'employee'}
           refreshKey={boardRefreshKey}
           onTaskClick={(task) => {
             setSelectedTask(task);
@@ -70,19 +72,19 @@ export const MainDashboard: React.FC = () => {
         <Box sx={{ mt: 8 }}>
           <Typography variant="h4" sx={{ mb: 4, fontWeight: 700 }}>Monitor Analytics</Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 4 }}>
-            <Box sx={{ height: 300, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary' }}>
+            <Box sx={chartBoxSx}>
               [Tasks Created vs. Closed Chart Simulation]
             </Box>
-            <Box sx={{ height: 300, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary' }}>
+            <Box sx={chartBoxSx}>
               [Average Time-to-Close Chart Simulation]
             </Box>
           </Box>
         </Box>
       )}
 
-      <TaskModal 
-        open={isTaskModalOpen} 
-        onClose={() => setIsTaskModalOpen(false)} 
+      <TaskModal
+        open={isTaskModalOpen}
+        onClose={() => setIsTaskModalOpen(false)}
         onSave={() => setBoardRefreshKey(prev => prev + 1)}
         task={selectedTask}
       />

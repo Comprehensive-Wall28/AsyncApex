@@ -4,6 +4,7 @@ import { StatCard } from '../components/StatCard';
 import { useAuth } from '../hooks/useAuth';
 import { ProjectBox } from '../components/ProjectBox';
 import { useNavigate } from 'react-router-dom';
+import { chartBoxSx } from '../styles/style';
 
 export const Projects: React.FC = () => {
   const { user, loading } = useAuth();
@@ -58,10 +59,10 @@ export const Projects: React.FC = () => {
         <Box sx={{ mt: 8 }}>
           <Typography variant="h4" sx={{ mb: 4, fontWeight: 700 }}>Monitor Analytics</Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 4 }}>
-            <Box sx={{ height: 300, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary' }}>
+            <Box sx={chartBoxSx}>
               [Tasks Created vs. Closed Chart Simulation]
             </Box>
-            <Box sx={{ height: 300, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary' }}>
+            <Box sx={chartBoxSx}>
               [Average Time-to-Close Chart Simulation]
             </Box>
           </Box>

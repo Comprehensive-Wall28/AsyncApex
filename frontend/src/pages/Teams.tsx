@@ -3,9 +3,12 @@ import { AddRounded, AssessmentRounded, CheckCircleRounded, TrendingUpRounded } 
 import { StatCard } from '../components/StatCard';
 import { TaskBoard } from '../components/TaskBoard';
 import { useAuth } from '../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
+import { chartBoxSx } from '../styles/style';
 
 export const Teams: React.FC = () => {
   const { user, loading } = useAuth();
+  const navigate = useNavigate();
 
   if (loading) return null; // Or a spinner
 
@@ -27,10 +30,10 @@ export const Teams: React.FC = () => {
 
         {isManager && (
           <Stack direction="row" spacing={2}>
-            <Button variant="outlined" startIcon={<AssessmentRounded />}>
+            <Button variant="outlined" startIcon={<AssessmentRounded />} onClick={() => { navigate('/projects/new') }}>
               New Project
             </Button>
-            <Button variant="contained" startIcon={<AddRounded />}>
+            <Button variant="contained" startIcon={<AddRounded />} onClick={() => { }}>
               New Task
             </Button>
           </Stack>
@@ -56,10 +59,10 @@ export const Teams: React.FC = () => {
         <Box sx={{ mt: 8 }}>
           <Typography variant="h4" sx={{ mb: 4, fontWeight: 700 }}>Monitor Analytics</Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 4 }}>
-            <Box sx={{ height: 300, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary' }}>
+            <Box sx={chartBoxSx}>
               [Tasks Created vs. Closed Chart Simulation]
             </Box>
-            <Box sx={{ height: 300, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary' }}>
+            <Box sx={chartBoxSx}>
               [Average Time-to-Close Chart Simulation]
             </Box>
           </Box>

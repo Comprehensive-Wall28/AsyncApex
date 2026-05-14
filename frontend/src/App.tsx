@@ -11,6 +11,8 @@ import { Teams } from './pages/Teams'
 import { NewProject } from './pages/NewProject'
 import { Management } from './pages/Management'
 
+import { DashboardLayout } from './layouts/DashboardLayout'
+
 function App() {
   return (
     <AppThemeProvider>
@@ -20,11 +22,14 @@ function App() {
           <Route path="/role-selection" element={<RoleSelection />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<MainDashboard />} />
-          <Route path="/projects" element={<Projects />} />
-          <Route path="/projects/new" element={<NewProject />} />
-          <Route path="/teams" element={<Teams />} />
-          <Route path="/management" element={<Management />} />
+          
+          <Route element={<DashboardLayout />}>
+            <Route path="/dashboard" element={<MainDashboard />} />
+            <Route path="/projects" element={<Projects />} />
+            <Route path="/projects/new" element={<NewProject />} />
+            <Route path="/teams" element={<Teams />} />
+            <Route path="/management" element={<Management />} />
+          </Route>
         </Routes>
       </BrowserRouter>
     </AppThemeProvider>

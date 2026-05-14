@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, IconButton, Tooltip, Avatar, Divider } from '@mui/material';
+import { Box, Typography, IconButton, Tooltip, Avatar } from '@mui/material';
 import {
   BoltRounded,
   LogoutRounded,
@@ -53,16 +53,10 @@ export const CollapsibleSidebar: React.FC<SidebarProps> = ({ userName, collapsed
       sx={{
         width: collapsed ? 64 : 240,
         height: '100vh',
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        bgcolor: 'background.paper',
-        borderRight: '1px solid',
-        borderColor: 'divider',
+        bgcolor: 'background.default',
         transition: 'width 0.25s ease',
         display: 'flex',
         flexDirection: 'column',
-        zIndex: 1200,
         overflow: 'hidden',
       }}
     >
@@ -74,8 +68,6 @@ export const CollapsibleSidebar: React.FC<SidebarProps> = ({ userName, collapsed
           alignItems: 'center',
           justifyContent: collapsed ? 'center' : 'space-between',
           px: collapsed ? 0 : 2,
-          borderBottom: '1px solid',
-          borderColor: 'divider',
           flexShrink: 0,
         }}
       >
@@ -159,7 +151,6 @@ export const CollapsibleSidebar: React.FC<SidebarProps> = ({ userName, collapsed
       </Box>
 
       {/* Footer */}
-      <Divider />
       <Box
         sx={{
           p: 1.5,

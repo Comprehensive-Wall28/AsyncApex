@@ -17,7 +17,6 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { AddRounded, EditRounded, DeleteRounded, SwapHorizRounded } from '@mui/icons-material';
-import { CollapsibleSidebar } from '../components/CollapsibleSidebar';
 import { useAuth } from '../hooks/useAuth';
 import { TeamModal } from '../components/TeamModal';
 import { ProjectModal } from '../components/ProjectModal';
@@ -28,7 +27,6 @@ import { Chip } from '@mui/material';
 
 export const Management: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [tabValue, setTabValue] = useState(0);
 
   const [teams, setTeams] = useState<any[]>([]);
@@ -111,157 +109,142 @@ export const Management: React.FC = () => {
   }
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      <CollapsibleSidebar userName={user?.name} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
-
-      <Box
-        sx={{
-          flexGrow: 1,
-          ml: sidebarCollapsed ? '64px' : '240px',
-          transition: 'margin-left 0.25s ease',
-          width: `calc(100% - ${sidebarCollapsed ? 64 : 240}px)`,
-          pb: 10,
-        }}
-      >
-        <Container maxWidth="xl" sx={{ mt: 8 }}>
-          <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h1" sx={{ fontSize: '2.25rem', color: 'text.primary', fontWeight: 800 }}>
-              Management Console
-            </Typography>
-            {tabValue === 0 && (
-              <Button variant="contained" startIcon={<AddRounded />} onClick={() => { setSelectedTeam(null); setTeamModalOpen(true); }}>
-                Create Team
-              </Button>
-            )}
-            {tabValue === 1 && (
-              <Button variant="contained" startIcon={<AddRounded />} onClick={() => { setSelectedProject(null); setProjectModalOpen(true); }}>
-                Create Project
-              </Button>
-            )}
-          </Box>
-
-          <Tabs
-            value={tabValue}
-            onChange={(_, newValue) => setTabValue(newValue)}
-            sx={{ mb: 4 }}
-          >
-            <Tab label="Teams" sx={{ fontWeight: 'bold' }} />
-            <Tab label="Projects" sx={{ fontWeight: 'bold' }} />
-            <Tab label="Users" sx={{ fontWeight: 'bold' }} />
-          </Tabs>
-
-          {dataLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <TableContainer component={Paper} sx={{ border: '1px solid', borderColor: 'divider' }}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    {tabValue === 2 ? (
-                      <>
-                        <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Name</TableCell>
-                        <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Email</TableCell>
-                        <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Role</TableCell>
-                        <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Team</TableCell>
-                      </>
-                    ) : (
-                      <>
-                        <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Name</TableCell>
-                        <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Description</TableCell>
-                      </>
-                    )}
-                    <TableCell align="right" sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {tabValue === 0 && teams.map((team) => (
-                    <TableRow key={team.teamId} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                      <TableCell component="th" scope="row" sx={{ color: 'text.primary', fontWeight: 500 }}>
-                        {team.name}
-                      </TableCell>
-                      <TableCell sx={{ color: 'text.secondary' }}>{team.description || '-'}</TableCell>
-                      <TableCell align="right">
-                        <IconButton color="primary" onClick={() => { setSelectedTeam(team); setTeamModalOpen(true); }}>
-                          <EditRounded />
-                        </IconButton>
-                        <IconButton color="error" onClick={() => handleDeleteTeam(team.teamId)}>
-                          <DeleteRounded />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {tabValue === 0 && teams.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={3} align="center" sx={{ py: 4, color: 'text.secondary' }}>No teams found.</TableCell>
-                    </TableRow>
-                  )}
-
-                  {tabValue === 1 && projects.map((project) => (
-                    <TableRow key={project.projectId} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                      <TableCell component="th" scope="row" sx={{ color: 'text.primary', fontWeight: 500 }}>
-                        {project.name}
-                      </TableCell>
-                      <TableCell sx={{ color: 'text.secondary' }}>{project.description || '-'}</TableCell>
-                      <TableCell align="right">
-                        <IconButton color="primary" onClick={() => { setSelectedProject(project); setProjectModalOpen(true); }}>
-                          <EditRounded />
-                        </IconButton>
-                        <IconButton color="error" onClick={() => handleDeleteProject(project.projectId)}>
-                          <DeleteRounded />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {tabValue === 1 && projects.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={3} align="center" sx={{ py: 4, color: 'text.secondary' }}>No projects found.</TableCell>
-                    </TableRow>
-                  )}
-
-                  {tabValue === 2 && users.map((u) => (
-                    <TableRow key={u.userId} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                      <TableCell component="th" scope="row" sx={{ color: 'text.primary', fontWeight: 500 }}>
-                        {u.name}
-                      </TableCell>
-                      <TableCell sx={{ color: 'text.secondary' }}>{u.email}</TableCell>
-                      <TableCell sx={{ color: 'text.secondary' }}>
-                        <Chip 
-                          label={u.role} 
-                          size="small" 
-                          color={u.role === 'manager' ? 'secondary' : 'default'}
-                          variant="outlined"
-                          sx={{ textTransform: 'capitalize' }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ color: 'text.secondary' }}>
-                        {u.teamName || 'Unassigned'}
-                      </TableCell>
-                      <TableCell align="right">
-                        <Button 
-                          variant="outlined" 
-                          size="small" 
-                          startIcon={<SwapHorizRounded />}
-                          onClick={() => { setSelectedUser(u); setChangeTeamModalOpen(true); }}
-                        >
-                          Change Team
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {tabValue === 2 && users.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>No users found.</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-
-        </Container>
+    <Container maxWidth="xl" sx={{ mt: 4 }}>
+      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h1" sx={{ fontSize: '2.25rem', color: 'text.primary', fontWeight: 800 }}>
+          Management Console
+        </Typography>
+        {tabValue === 0 && (
+          <Button variant="contained" startIcon={<AddRounded />} onClick={() => { setSelectedTeam(null); setTeamModalOpen(true); }}>
+            Create Team
+          </Button>
+        )}
+        {tabValue === 1 && (
+          <Button variant="contained" startIcon={<AddRounded />} onClick={() => { setSelectedProject(null); setProjectModalOpen(true); }}>
+            Create Project
+          </Button>
+        )}
       </Box>
+
+      <Tabs
+        value={tabValue}
+        onChange={(_, newValue) => setTabValue(newValue)}
+        sx={{ mb: 4 }}
+      >
+        <Tab label="Teams" sx={{ fontWeight: 'bold' }} />
+        <Tab label="Projects" sx={{ fontWeight: 'bold' }} />
+        <Tab label="Users" sx={{ fontWeight: 'bold' }} />
+      </Tabs>
+
+      {dataLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <TableContainer component={Paper} sx={{ border: '1px solid', borderColor: 'divider' }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                {tabValue === 2 ? (
+                  <>
+                    <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Name</TableCell>
+                    <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Email</TableCell>
+                    <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Role</TableCell>
+                    <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Team</TableCell>
+                  </>
+                ) : (
+                  <>
+                    <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Name</TableCell>
+                    <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Description</TableCell>
+                  </>
+                )}
+                <TableCell align="right" sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {tabValue === 0 && teams.map((team) => (
+                <TableRow key={team.teamId} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                  <TableCell component="th" scope="row" sx={{ color: 'text.primary', fontWeight: 500 }}>
+                    {team.name}
+                  </TableCell>
+                  <TableCell sx={{ color: 'text.secondary' }}>{team.description || '-'}</TableCell>
+                  <TableCell align="right">
+                    <IconButton color="primary" onClick={() => { setSelectedTeam(team); setTeamModalOpen(true); }}>
+                      <EditRounded />
+                    </IconButton>
+                    <IconButton color="error" onClick={() => handleDeleteTeam(team.teamId)}>
+                      <DeleteRounded />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {tabValue === 0 && teams.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={3} align="center" sx={{ py: 4, color: 'text.secondary' }}>No teams found.</TableCell>
+                </TableRow>
+              )}
+
+              {tabValue === 1 && projects.map((project) => (
+                <TableRow key={project.projectId} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                  <TableCell component="th" scope="row" sx={{ color: 'text.primary', fontWeight: 500 }}>
+                    {project.name}
+                  </TableCell>
+                  <TableCell sx={{ color: 'text.secondary' }}>{project.description || '-'}</TableCell>
+                  <TableCell align="right">
+                    <IconButton color="primary" onClick={() => { setSelectedProject(project); setProjectModalOpen(true); }}>
+                      <EditRounded />
+                    </IconButton>
+                    <IconButton color="error" onClick={() => handleDeleteProject(project.projectId)}>
+                      <DeleteRounded />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {tabValue === 1 && projects.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={3} align="center" sx={{ py: 4, color: 'text.secondary' }}>No projects found.</TableCell>
+                </TableRow>
+              )}
+
+              {tabValue === 2 && users.map((u) => (
+                <TableRow key={u.userId} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                  <TableCell component="th" scope="row" sx={{ color: 'text.primary', fontWeight: 500 }}>
+                    {u.name}
+                  </TableCell>
+                  <TableCell sx={{ color: 'text.secondary' }}>{u.email}</TableCell>
+                  <TableCell sx={{ color: 'text.secondary' }}>
+                    <Chip
+                      label={u.role}
+                      size="small"
+                      color={u.role === 'manager' ? 'secondary' : 'default'}
+                      variant="outlined"
+                      sx={{ textTransform: 'capitalize' }}
+                    />
+                  </TableCell>
+                  <TableCell sx={{ color: 'text.secondary' }}>
+                    {u.teamName || 'Unassigned'}
+                  </TableCell>
+                  <TableCell align="right">
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<SwapHorizRounded />}
+                      onClick={() => { setSelectedUser(u); setChangeTeamModalOpen(true); }}
+                    >
+                      Change Team
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {tabValue === 2 && users.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>No users found.</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
       {/* Modals */}
       <TeamModal
@@ -283,6 +266,6 @@ export const Management: React.FC = () => {
         teams={teams}
         onSuccess={fetchData}
       />
-    </Box>
+    </Container>
   );
 };

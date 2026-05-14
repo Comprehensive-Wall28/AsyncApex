@@ -29,3 +29,12 @@ export interface Team {
     description: string;
     createdAt: Date;
 };
+
+export interface User {
+    userId: string;
+    name: string;
+    email: string;
+    role: 'employee' | 'manager';
+    teamId?: string;
+    teamName?: string;
+}

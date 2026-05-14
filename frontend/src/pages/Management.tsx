@@ -16,12 +16,15 @@ import {
   IconButton,
   CircularProgress,
 } from '@mui/material';
-import { AddRounded, EditRounded, DeleteRounded } from '@mui/icons-material';
+import { AddRounded, EditRounded, DeleteRounded, SwapHorizRounded } from '@mui/icons-material';
 import { CollapsibleSidebar } from '../components/CollapsibleSidebar';
 import { useAuth } from '../hooks/useAuth';
 import { TeamModal } from '../components/TeamModal';
 import { ProjectModal } from '../components/ProjectModal';
+import { ChangeTeamModal } from '../components/ChangeTeamModal';
 import api from '../api';
+import type { User } from '../api/interface';
+import { Chip } from '@mui/material';
 
 export const Management: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -30,6 +33,7 @@ export const Management: React.FC = () => {
 
   const [teams, setTeams] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
   // Modal states
@@ -39,6 +43,9 @@ export const Management: React.FC = () => {
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<any | null>(null);
 
+  const [changeTeamModalOpen, setChangeTeamModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
   const isManager = user?.role === 'manager';
 
   const fetchData = async () => {
@@ -47,9 +54,16 @@ export const Management: React.FC = () => {
       if (tabValue === 0) {
         const res = await api.teams.getAll();
         setTeams((res as any) || []);
-      } else {
+      } else if (tabValue === 1) {
         const res = await api.projects.getAll();
         setProjects((res as any) || []);
+      } else if (tabValue === 2) {
+        const [uRes, tRes] = await Promise.all([
+          api.users.getAll(),
+          api.teams.getAll()
+        ]);
+        setUsers((uRes as any) || []);
+        setTeams((tRes as any) || []);
       }
     } catch (error) {
       console.error('Failed to fetch data', error);
@@ -114,11 +128,12 @@ export const Management: React.FC = () => {
             <Typography variant="h1" sx={{ fontSize: '2.25rem', color: 'text.primary', fontWeight: 800 }}>
               Management Console
             </Typography>
-            {tabValue === 0 ? (
+            {tabValue === 0 && (
               <Button variant="contained" startIcon={<AddRounded />} onClick={() => { setSelectedTeam(null); setTeamModalOpen(true); }}>
                 Create Team
               </Button>
-            ) : (
+            )}
+            {tabValue === 1 && (
               <Button variant="contained" startIcon={<AddRounded />} onClick={() => { setSelectedProject(null); setProjectModalOpen(true); }}>
                 Create Project
               </Button>
@@ -132,6 +147,7 @@ export const Management: React.FC = () => {
           >
             <Tab label="Teams" sx={{ fontWeight: 'bold' }} />
             <Tab label="Projects" sx={{ fontWeight: 'bold' }} />
+            <Tab label="Users" sx={{ fontWeight: 'bold' }} />
           </Tabs>
 
           {dataLoading ? (
@@ -143,8 +159,19 @@ export const Management: React.FC = () => {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Name</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Description</TableCell>
+                    {tabValue === 2 ? (
+                      <>
+                        <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Name</TableCell>
+                        <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Email</TableCell>
+                        <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Role</TableCell>
+                        <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Team</TableCell>
+                      </>
+                    ) : (
+                      <>
+                        <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Name</TableCell>
+                        <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Description</TableCell>
+                      </>
+                    )}
                     <TableCell align="right" sx={{ color: 'text.secondary', fontWeight: 'bold' }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
@@ -192,6 +219,42 @@ export const Management: React.FC = () => {
                       <TableCell colSpan={3} align="center" sx={{ py: 4, color: 'text.secondary' }}>No projects found.</TableCell>
                     </TableRow>
                   )}
+
+                  {tabValue === 2 && users.map((u) => (
+                    <TableRow key={u.userId} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                      <TableCell component="th" scope="row" sx={{ color: 'text.primary', fontWeight: 500 }}>
+                        {u.name}
+                      </TableCell>
+                      <TableCell sx={{ color: 'text.secondary' }}>{u.email}</TableCell>
+                      <TableCell sx={{ color: 'text.secondary' }}>
+                        <Chip 
+                          label={u.role} 
+                          size="small" 
+                          color={u.role === 'manager' ? 'secondary' : 'default'}
+                          variant="outlined"
+                          sx={{ textTransform: 'capitalize' }}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ color: 'text.secondary' }}>
+                        {u.teamName || 'Unassigned'}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button 
+                          variant="outlined" 
+                          size="small" 
+                          startIcon={<SwapHorizRounded />}
+                          onClick={() => { setSelectedUser(u); setChangeTeamModalOpen(true); }}
+                        >
+                          Change Team
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {tabValue === 2 && users.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>No users found.</TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -211,6 +274,13 @@ export const Management: React.FC = () => {
         open={projectModalOpen}
         onClose={() => setProjectModalOpen(false)}
         project={selectedProject}
+        onSuccess={fetchData}
+      />
+      <ChangeTeamModal
+        open={changeTeamModalOpen}
+        onClose={() => setChangeTeamModalOpen(false)}
+        user={selectedUser}
+        teams={teams}
         onSuccess={fetchData}
       />
     </Box>

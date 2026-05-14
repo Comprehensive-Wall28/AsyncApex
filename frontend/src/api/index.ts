@@ -11,6 +11,7 @@ export const api = {
     create: (data: any) => client.post('/teams', data),
     update: (id: string, data: any) => client.patch(`/teams/${id}`, data),
     delete: (id: string) => client.delete(`/teams/${id}`),
+    addUser: (teamId: string, userId: string) => client.post(`/teams/${teamId}/users`, { userId }),
   },
   tasks: {
     getAll: (params?: { teamId?: string; assigneeId?: string; status?: string; projectId?: string }) =>
@@ -81,6 +82,7 @@ export const api = {
   },
 
   users: {
+    getAll: () => client.get('/users'),
     getOne: (id: string) => client.get(`/users/${id}`),
   },
 

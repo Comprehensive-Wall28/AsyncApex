@@ -101,7 +101,7 @@ export class TasksController {
   }
 
   @Get('by-user/:userId')
-  @ApiOperation({ summary: "Get tasks for a specific user", description: 'Managers may view any user; employees may view only their own tasks.' })
+  @ApiOperation({ summary: "Get tasks for a specific user", description: 'Managers may view any user; employees may view only their own tasks and only within their own team.' })
   @ApiParam({ name: 'userId', description: 'userId (UUID) to fetch tasks for' })
   @ApiResponse({ status: 200, description: 'Array of task objects' })
   @ApiResponse({ status: 403, description: 'Access denied' })

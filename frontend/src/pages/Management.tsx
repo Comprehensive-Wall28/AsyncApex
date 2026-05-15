@@ -220,7 +220,7 @@ export const Management: React.FC = () => {
                     />
                   </TableCell>
                   <TableCell sx={{ color: 'text.secondary' }}>
-                    {u.teamName || 'Unassigned'}
+                    {teams.find(t => t.teamId === u.teamId)?.name || 'Unassigned'}
                   </TableCell>
                   <TableCell align="right">
                     <Button

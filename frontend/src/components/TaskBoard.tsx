@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Card, Avatar, Chip, Stack, CircularProgress } from '@mui/material';
+import { Box, Typography, Card, Avatar, Chip, Stack, CircularProgress, IconButton } from '@mui/material';
+import { 
+  AddRounded, 
+  RadioButtonUncheckedRounded, 
+  AccessTimeRounded, 
+  CheckCircleRounded,
+} from '@mui/icons-material';
 import api from '../api';
 import type { Task } from '../api/interface';
 import { tokens } from '../theme/theme';
@@ -10,6 +16,7 @@ interface TaskBoardProps {
   role: 'manager' | 'employee';
   refreshKey?: number;
   onTaskClick?: (task: Task) => void;
+  onAddTask?: (status: Task['status']) => void;
 }
 
 // Priority colour mapping references centralized tokens.
@@ -19,9 +26,12 @@ const priorityColorMap: Record<string, string> = {
   low:    tokens.successMain,
 };
 
-export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, onTaskClick }) => {
+export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, onTaskClick, onAddTask }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [draggedOverTaskId, setDraggedOverTaskId] = useState<string | null>(null);
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [activeDropCol, setActiveDropCol] = useState<string | null>(null);
 
   const fetchTasks = async () => {
     try {
@@ -39,139 +49,278 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     e.dataTransfer.setData('taskId', taskId);
+    setDraggedTaskId(taskId);
   };
 
-  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); };
+  const handleDragOverColumn = (e: React.DragEvent, colId: string) => {
+    e.preventDefault();
+    setActiveDropCol(colId);
+  };
 
-  const handleDrop = async (e: React.DragEvent, newStatus: Task['status']) => {
+  const handleDragLeaveColumn = () => {
+    setActiveDropCol(null);
+  };
+
+  const handleDragOverTask = (e: React.DragEvent, taskId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggedOverTaskId(taskId);
+  };
+
+  const handleDrop = async (e: React.DragEvent, newColId: 'todo' | 'in-progress' | 'done') => {
     e.preventDefault();
     const taskId = e.dataTransfer.getData('taskId');
+    setDraggedTaskId(null);
+    setDraggedOverTaskId(null);
+    setActiveDropCol(null);
+
     if (!taskId) return;
-    const task = tasks.find(t => t.taskId === taskId);
-    if (!task || task.status === newStatus) return;
+    const taskIndex = tasks.findIndex(t => t.taskId === taskId);
+    if (taskIndex === -1) return;
+    const task = tasks[taskIndex];
 
-    setTasks(prev => prev.map(t => t.taskId === taskId ? { ...t, status: newStatus } : t));
+    let targetStatus: Task['status'] = newColId;
+    let newTasks = [...tasks];
 
+    // Handle reordering within column or moving to a specific position
+    if (draggedOverTaskId) {
+      const overIndex = tasks.findIndex(t => t.taskId === draggedOverTaskId);
+      if (overIndex !== -1) {
+        newTasks.splice(taskIndex, 1);
+        // If it's a different column, we'll update the status later
+        newTasks.splice(overIndex, 0, { ...task });
+      }
+    } else {
+      // Just moving to the end of the column
+      newTasks.splice(taskIndex, 1);
+      newTasks.push({ ...task });
+    }
+
+    // Workflow logic for status transition
     try {
-      if (task.status === 'todo' && newStatus === 'in-progress') await api.tasks.start(taskId);
-      else if (task.status === 'in-progress' && newStatus === 'in-review') await api.tasks.submit(taskId);
-      else if (task.status === 'in-review' && newStatus === 'done' && role === 'manager') await api.tasks.approve(taskId);
-      else if (task.status === 'in-review' && newStatus === 'in-progress' && role === 'manager') await api.tasks.reject(taskId);
-      else await api.tasks.update(taskId, { status: newStatus });
+      if (task.status === 'todo' && newColId === 'in-progress') {
+        targetStatus = 'in-progress';
+        await api.tasks.start(taskId);
+      } else if (task.status === 'in-progress' && newColId === 'done') {
+        targetStatus = 'in-review';
+        await api.tasks.submit(taskId);
+      } else if (task.status === 'in-review' && newColId === 'done' && role === 'manager') {
+        targetStatus = 'done';
+        await api.tasks.approve(taskId);
+      } else if (task.status === 'in-review' && newColId === 'in-progress' && role === 'manager') {
+        targetStatus = 'in-progress';
+        await api.tasks.reject(taskId);
+      } else if (task.status === 'in-review' && newColId === 'done' && role === 'employee') {
+        // Employee dropped it into done again, already in review, no-op or keep in review
+        targetStatus = 'in-review';
+      } else {
+        targetStatus = newColId as Task['status'];
+        if (task.status !== newColId) {
+          await api.tasks.update(taskId, { status: newColId as Task['status'] });
+        }
+      }
+      
+      // Final state update with correct status
+      setTasks(newTasks.map(t => t.taskId === taskId ? { ...t, status: targetStatus } : t));
     } catch (error) {
       console.error('Failed to update status', error);
-      fetchTasks();
+      fetchTasks(); // Revert on failure
     }
   };
 
-  const columns: { id: Task['status']; title: string }[] = [
-    { id: 'todo', title: 'To Do' },
-    { id: 'in-progress', title: 'In Progress' },
-    { id: 'in-review', title: 'Review' },
-    { id: 'done', title: 'Done' },
+  // Map functional statuses to visual columns
+  const columns = [
+    { id: 'todo' as const, title: 'To Do', icon: <RadioButtonUncheckedRounded sx={{ color: tokens.textSecondary }} />, statuses: ['todo'] },
+    { id: 'in-progress' as const, title: 'In Progress', icon: <AccessTimeRounded sx={{ color: tokens.warningMain }} />, statuses: ['in-progress'] },
+    { id: 'done' as const, title: 'Done', icon: <CheckCircleRounded sx={{ color: tokens.successMain }} />, statuses: ['in-review', 'done'] },
   ];
 
-  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}><CircularProgress /></Box>;
+  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 10 }}><CircularProgress /></Box>;
 
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(4, 1fr)' }, gap: 2.5 }}>
-      {columns.map(col => (
-        <Box
-          key={col.id}
-          onDragOver={handleDragOver}
-          onDrop={(e) => handleDrop(e, col.id)}
-          sx={{
-            bgcolor: 'rgba(255, 255, 255, 0.03)',
-            borderRadius: '16px',
-            p: 2.5,
-            minHeight: '70vh',
-            border: '1px solid',
-            borderColor: 'rgba(255, 255, 255, 0.08)',
-            transition: 'background-color 0.3s ease',
-            '&:hover': {
-              bgcolor: 'rgba(255, 255, 255, 0.05)',
-            }
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, px: 0.5 }}>
-            <Typography variant="h6" sx={{ fontSize: '0.95rem', fontWeight: 800, color: 'text.primary', letterSpacing: '0.02em' }}>
-              {col.title}
-            </Typography>
-            <Chip 
-              label={tasks.filter(t => t.status === col.id).length} 
-              size="small" 
-              sx={{ 
-                height: 20, 
-                fontSize: '0.7rem', 
-                fontWeight: 700, 
-                bgcolor: 'rgba(255,255,255,0.1)', 
-                color: 'text.secondary',
-                borderRadius: '6px'
-              }} 
-            />
-          </Box>
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
+      {columns.map(col => {
+        const columnTasks = tasks.filter((t: Task) => col.statuses.includes(t.status));
+        
+        return (
+          <Box
+            key={col.id}
+            onDragOver={(e) => handleDragOverColumn(e, col.id)}
+            onDragLeave={handleDragLeaveColumn}
+            onDrop={(e) => handleDrop(e, col.id)}
+            sx={{
+              bgcolor: activeDropCol === col.id ? 'rgba(96, 165, 250, 0.08)' : 'rgba(13, 17, 26, 0.4)',
+              borderRadius: '32px',
+              p: 3,
+              minHeight: '600px',
+              border: '2px solid',
+              borderColor: activeDropCol === col.id ? tokens.secondaryMain : 'rgba(148, 163, 184, 0.1)',
+              display: 'flex',
+              flexDirection: 'column',
+              transition: 'all 0.2s ease',
+              position: 'relative',
+              '&:hover': {
+                bgcolor: activeDropCol === col.id ? 'rgba(96, 165, 250, 0.1)' : 'rgba(13, 17, 26, 0.6)',
+              }
+            }}
+          >
+            {/* Column Header */}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box sx={{ 
+                  width: 32, 
+                  height: 32, 
+                  borderRadius: '10px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  bgcolor: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.05)'
+                }}>
+                  {col.icon}
+                </Box>
+                <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 700, color: 'text.primary' }}>
+                  {col.title}
+                </Typography>
+              </Box>
+              <IconButton 
+                size="small" 
+                onClick={() => onAddTask?.(col.id)}
+                sx={{ 
+                  bgcolor: 'rgba(255, 255, 255, 0.05)', 
+                  borderRadius: '8px',
+                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.1)' }
+                }}
+              >
+                <AddRounded fontSize="small" />
+              </IconButton>
+            </Box>
 
-          <Stack spacing={1.5}>
-            {tasks.filter(t => t.status === col.id).map(task => {
-              const priorityColor = priorityColorMap[task.priority] || tokens.textSecondary;
-              return (
-                <Card
-                  key={task.taskId}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, task.taskId)}
-                  onClick={() => onTaskClick?.(task)}
-                  sx={{
-                    p: 2,
-                    cursor: 'grab',
-                    bgcolor: 'background.default',
-                    borderRadius: '12px',
-                    border: '1px solid',
-                    borderColor: 'rgba(255, 255, 255, 0.05)',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    '&:hover': { 
-                      transform: 'translateY(-4px)',
-                      boxShadow: '0 12px 24px rgba(0,0,0,0.4)',
-                      borderColor: 'primary.main',
-                      bgcolor: 'rgba(255, 255, 255, 0.05)'
-                    },
-                    '&:active': { cursor: 'grabbing' }
+            <Stack spacing={2} sx={{ flexGrow: 1 }}>
+              {columnTasks.length > 0 ? (
+                columnTasks.map((task: Task) => {
+                  const priorityColor = priorityColorMap[task.priority] || tokens.textSecondary;
+                  return (
+                    <Card
+                      key={task.taskId}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, task.taskId)}
+                      onDragOver={(e) => handleDragOverTask(e, task.taskId)}
+                      onDragLeave={() => setDraggedOverTaskId(null)}
+                      onClick={() => onTaskClick?.(task)}
+                      sx={{
+                        p: 2.5,
+                        cursor: 'grab',
+                        bgcolor: draggedTaskId === task.taskId ? 'transparent' : 'rgba(18, 22, 32, 0.8)',
+                        borderRadius: '24px',
+                        border: '1px solid',
+                        borderColor: draggedOverTaskId === task.taskId ? tokens.secondaryMain : 'rgba(148, 163, 184, 0.1)',
+                        opacity: draggedTaskId === task.taskId ? 0.4 : 1,
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                        position: 'relative',
+                        '&:hover': { 
+                          transform: 'translateY(-4px) scale(1.01)',
+                          boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+                          borderColor: tokens.secondaryMain,
+                          bgcolor: 'rgba(22, 28, 40, 1)'
+                        },
+                        '&:active': { cursor: 'grabbing' },
+                        // Visual indicator for reordering
+                        '&::before': draggedOverTaskId === task.taskId ? {
+                          content: '""',
+                          position: 'absolute',
+                          top: -8,
+                          left: 0,
+                          right: 0,
+                          height: 4,
+                          bgcolor: tokens.secondaryMain,
+                          borderRadius: '2px',
+                          boxShadow: `0 0 10px ${tokens.secondaryMain}`,
+                        } : {},
+                      }}
+                    >
+                      {task.imageKey && (
+                        <Box sx={{ width: '100%', height: 140, borderRadius: '16px', mb: 2, overflow: 'hidden', border: '1px solid', borderColor: 'rgba(255,255,255,0.05)' }}>
+                          <S3Image 
+                            imageKey={task.imageKey} 
+                            sx={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                          />
+                        </Box>
+                      )}
+                      <Typography sx={{ fontWeight: 600, mb: 2, fontSize: '0.95rem', color: 'text.primary', lineHeight: 1.4 }}>
+                        {task.title}
+                      </Typography>
+                      
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                          <Chip
+                            label={task.priority.toUpperCase()}
+                            size="small"
+                            sx={{
+                              height: 22,
+                              fontSize: '0.65rem',
+                              fontWeight: 800,
+                              color: priorityColor,
+                              bgcolor: `${priorityColor}1A`,
+                              border: `1px solid ${priorityColor}33`,
+                              borderRadius: '6px',
+                              '& .MuiChip-label': { px: 1 },
+                            }}
+                          />
+                          {task.status === 'in-review' && (
+                            <Chip
+                              label="REVIEW"
+                              size="small"
+                              sx={{
+                                height: 22,
+                                fontSize: '0.65rem',
+                                fontWeight: 800,
+                                color: tokens.secondaryMain,
+                                bgcolor: `${tokens.secondaryMain}1A`,
+                                border: `1px solid ${tokens.secondaryMain}33`,
+                                borderRadius: '6px',
+                              }}
+                            />
+                          )}
+                        </Stack>
+                        <Avatar 
+                          sx={{ 
+                            width: 28, 
+                            height: 28, 
+                            bgcolor: tokens.bgElevated, 
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            fontSize: '0.7rem', 
+                            fontWeight: 800,
+                            color: tokens.textPrimary
+                          }}
+                        >
+                          {task.assigneeId ? task.assigneeId.substring(0, 2).toUpperCase() : '?'}
+                        </Avatar>
+                      </Box>
+                    </Card>
+                  );
+                })
+              ) : (
+                <Box 
+                  sx={{ 
+                    flexGrow: 1, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    border: '2px dashed rgba(148, 163, 184, 0.1)',
+                    borderRadius: '24px',
+                    m: 0.5
                   }}
                 >
-                  {task.imageKey && (
-                    <Box sx={{ width: '100%', height: 100, borderRadius: '6px', mb: 1.5, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
-                      <S3Image 
-                        imageKey={task.imageKey} 
-                        sx={{ width: '100%', height: '100%' }} 
-                      />
-                    </Box>
-                  )}
-                  <Typography sx={{ fontWeight: 600, mb: 1.5, fontSize: '0.875rem', color: 'text.primary' }}>
-                    {task.title}
+                  <Typography sx={{ color: 'text.disabled', fontSize: '0.875rem', fontStyle: 'italic' }}>
+                    Drop tasks here
                   </Typography>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Chip
-                      label={task.priority.toUpperCase()}
-                      size="small"
-                      sx={{
-                        height: 20,
-                        fontSize: '0.65rem',
-                        fontWeight: 700,
-                        color: priorityColor,
-                        bgcolor: `${priorityColor}1A`,
-                        border: `1px solid ${priorityColor}33`,
-                        '& .MuiChip-label': { px: 1 },
-                      }}
-                    />
-                    <Avatar sx={{ width: 22, height: 22, bgcolor: 'primary.dark', fontSize: '0.65rem', fontWeight: 700 }}>
-                      {task.assigneeId ? task.assigneeId.substring(0, 2).toUpperCase() : '?'}
-                    </Avatar>
-                  </Box>
-                </Card>
-              );
-            })}
-          </Stack>
-        </Box>
-      ))}
+                </Box>
+              )}
+            </Stack>
+          </Box>
+        );
+      })}
     </Box>
   );
 };

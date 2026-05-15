@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Box, Typography, Button, Container, Stack } from '@mui/material';
 import { AddRounded, AssessmentRounded } from '@mui/icons-material';
 
-import { TaskBoard } from '../components/TaskBoard';
 import { TaskModal } from '../components/TaskModal';
 import { TaskViewModal } from '../components/TaskViewModal';
 import { useAuth } from '../hooks/useAuth';
@@ -18,7 +17,6 @@ export const MainDashboard: React.FC = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [selectedTask, setSelectedTask] = useState<Task | undefined>(undefined);
-  const [boardRefreshKey, setBoardRefreshKey] = useState(0);
 
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -75,21 +73,7 @@ export const MainDashboard: React.FC = () => {
         )}
       </Box>
 
-      {/* Nexus Kanban Board */}
-      <Box sx={{ mb: 6 }}>
-        <Typography variant="h4" sx={{ mb: 4, fontWeight: 800, letterSpacing: '-0.02em' }}>
-          Sprint Pipeline
-        </Typography>
-        <TaskBoard
-          teamId={user?.teamId}
-          role={user?.role || 'employee'}
-          refreshKey={boardRefreshKey}
-          onTaskClick={(task) => {
-            setSelectedTask(task);
-            setIsViewModalOpen(true);
-          }}
-        />
-      </Box>
+      {/* Monitoring Section (Optional: add a summary or just keep it simple) */}
 
       {isManager && (
         <Box sx={{ mt: 8 }}>
@@ -122,7 +106,7 @@ export const MainDashboard: React.FC = () => {
       <TaskModal
         open={isTaskModalOpen}
         onClose={() => setIsTaskModalOpen(false)}
-        onSave={() => setBoardRefreshKey(prev => prev + 1)}
+        onSave={() => navigate('/tasks')}
         task={selectedTask}
       />
     </Container>

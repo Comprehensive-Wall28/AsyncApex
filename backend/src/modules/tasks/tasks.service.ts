@@ -182,11 +182,9 @@ export class TasksService {
       this.validateStatusTransition(task['status'], dto.status, user.role);
     }
 
-    const isMarkingDone = dto.status === 'done' && task['status'] !== 'done';
-
     // Handle image replacement (retain the previous image version in S3)
     let newImageKey: string | undefined;
-    if (file && !isMarkingDone) {
+    if (file) {
       const uploaded = await this.s3Service.upload(file);
       newImageKey = uploaded.key;
     }
@@ -207,12 +205,6 @@ export class TasksService {
 
     let expression = 'SET ' + setUpdates.map((_, i) => `#u${i} = :u${i}`).join(', ');
 
-    // Remove imageKey attribute from DB when marking done
-    if (isMarkingDone && task['imageKey']) {
-      names['#imgKey'] = 'imageKey';
-      expression += ' REMOVE #imgKey';
-    }
-
     const result = await dynamoDB.send(
       new UpdateCommand({
         TableName: TABLES.Tasks,
@@ -226,14 +218,6 @@ export class TasksService {
 
     if (dto.status && dto.status !== task['status']) {
       await this.logStatusChange(taskId, user.userId, task['status'], dto.status);
-
-      if (isMarkingDone && task['imageKey']) {
-        try {
-          await this.s3Service.remove(task['imageKey']);
-        } catch (err) {
-          this.logger.warn(`Failed to remove S3 image for completed task ${taskId}: ${err}`);
-        }
-      }
     }
 
     return result.Attributes;
@@ -395,21 +379,12 @@ export class TasksService {
       throw new BadRequestException(`Task status is ${task['status']}, not 'in-review'. Only tasks in review can be approved.`);
     }
 
-    // Delete image if present (task is being marked done)
-    if (task['imageKey']) {
-      try {
-        await this.s3Service.remove(task['imageKey']);
-      } catch (err) {
-        this.logger.warn(`Failed to remove S3 image for approved task ${taskId}: ${err}`);
-      }
-    }
-
     const result = await dynamoDB.send(
       new UpdateCommand({
         TableName: TABLES.Tasks,
         Key: { taskId },
-        UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt REMOVE #imgKey',
-        ExpressionAttributeNames: { '#status': 'status', '#updatedAt': 'updatedAt', '#imgKey': 'imageKey' },
+        UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt',
+        ExpressionAttributeNames: { '#status': 'status', '#updatedAt': 'updatedAt' },
         ExpressionAttributeValues: { ':status': 'done', ':updatedAt': new Date().toISOString() },
         ReturnValues: 'ALL_NEW',
       }),

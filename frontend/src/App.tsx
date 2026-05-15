@@ -8,9 +8,9 @@ import { Login } from './pages/Login'
 import { MainDashboard } from './pages/MainDashboard'
 import { Projects } from './pages/Projects'
 import { Teams } from './pages/Teams'
-import { NewProject } from './pages/NewProject'
 import { Management } from './pages/Management'
-
+import { Tasks } from './pages/Tasks'
+import { NewProject } from './pages/NewProject'
 import { DashboardLayout } from './layouts/DashboardLayout'
 
 function App() {
@@ -28,6 +28,7 @@ function App() {
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/new" element={<NewProject />} />
             <Route path="/teams" element={<Teams />} />
+            <Route path="/tasks" element={<Tasks />} />
             <Route path="/management" element={<Management />} />
           </Route>
         </Routes>

@@ -9,6 +9,7 @@ import {
   AssignmentRounded,
   GroupRounded,
   SettingsRounded,
+  ViewColumnRounded,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -41,6 +42,7 @@ export const CollapsibleSidebar: React.FC<SidebarProps> = ({ userName, collapsed
   const navItems = [
     { label: 'Dashboard', icon: <DashboardRounded />, path: '/dashboard' },
     { label: 'Projects', icon: <AssignmentRounded />, path: '/projects' },
+    { label: 'Tasks', icon: <ViewColumnRounded />, path: '/tasks' },
     { label: 'Teams', icon: <GroupRounded />, path: '/teams' },
   ];
 

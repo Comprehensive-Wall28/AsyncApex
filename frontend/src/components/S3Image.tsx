@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, CircularProgress, Skeleton } from '@mui/material';
+import { Box, Skeleton } from '@mui/material';
 import api from '../api';
 
 interface S3ImageProps {
@@ -7,6 +7,10 @@ interface S3ImageProps {
   alt?: string;
   sx?: any;
 }
+
+// Global cache for presigned URLs to prevent flickering on re-mounts
+const urlCache: Record<string, { url: string; timestamp: number }> = {};
+const CACHE_TTL = 3600 * 1000; // 1 hour
 
 export const S3Image: React.FC<S3ImageProps> = ({ imageKey, alt, sx }) => {
   const [url, setUrl] = useState<string | null>(null);
@@ -16,6 +20,15 @@ export const S3Image: React.FC<S3ImageProps> = ({ imageKey, alt, sx }) => {
   useEffect(() => {
     if (!imageKey) return;
 
+    // Check cache
+    const cached = urlCache[imageKey];
+    if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+      setUrl(cached.url);
+      setLoading(false);
+      setError(false);
+      return;
+    }
+
     let isMounted = true;
     const fetchUrl = async () => {
       try {
@@ -23,6 +36,7 @@ export const S3Image: React.FC<S3ImageProps> = ({ imageKey, alt, sx }) => {
         const response = await api.s3.getPresignedUrl(imageKey);
         if (isMounted) {
           setUrl(response.url);
+          urlCache[imageKey] = { url: response.url, timestamp: Date.now() };
           setError(false);
         }
       } catch (err) {

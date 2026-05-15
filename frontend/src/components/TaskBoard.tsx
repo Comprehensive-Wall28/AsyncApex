@@ -1,26 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  Box,
-  Typography,
-  Card,
-  Avatar,
-  Chip,
-  Stack,
-  IconButton,
+import { 
+  Box, 
+  Typography, 
+  Card, 
+  Avatar, 
+  Chip, 
+  Stack, 
+  IconButton, 
   Skeleton,
-  Button
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField
 } from '@mui/material';
-import {
-  AddRounded,
-  RadioButtonUncheckedRounded,
-  AccessTimeRounded,
+import { 
+  AddRounded, 
+  RadioButtonUncheckedRounded, 
+  AccessTimeRounded, 
   CheckCircleRounded,
   TuneRounded,
   PlayArrowRounded,
-  SendRounded
+  SendRounded,
+  CloseRounded
 } from '@mui/icons-material';
 import {
-  DndContext,
+  DndContext, 
   closestCorners,
   KeyboardSensor,
   PointerSensor,
@@ -56,9 +62,9 @@ interface TaskBoardProps {
 }
 
 const priorityColorMap: Record<string, string> = {
-  high: tokens.errorMain,
+  high:   tokens.errorMain,
   medium: tokens.warningMain,
-  low: tokens.successMain,
+  low:    tokens.successMain,
 };
 
 interface SortableTaskCardProps {
@@ -67,9 +73,11 @@ interface SortableTaskCardProps {
   onClick: () => void;
   onStart?: (taskId: string) => void;
   onSubmit?: (taskId: string) => void;
+  onApprove?: (taskId: string) => void;
+  onReject?: (taskId: string) => void;
 }
 
-const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, onClick, onStart, onSubmit }) => {
+const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, role, onClick, onStart, onSubmit, onApprove, onReject }) => {
   const {
     attributes,
     listeners,
@@ -106,7 +114,7 @@ const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, onClick, onSt
         border: '1px solid rgba(148, 163, 184, 0.1)',
         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
         position: 'relative',
-        '&:hover': {
+        '&:hover': { 
           transform: 'translateY(-4px) scale(1.01)',
           boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
           borderColor: tokens.secondaryMain,
@@ -127,7 +135,7 @@ const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, onClick, onSt
           </Typography>
         </Box>
       )}
-
+      
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Chip
@@ -145,13 +153,13 @@ const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, onClick, onSt
             }}
           />
         </Stack>
-        <Avatar
-          sx={{
-            width: 28,
-            height: 28,
-            bgcolor: tokens.bgElevated,
+        <Avatar 
+          sx={{ 
+            width: 28, 
+            height: 28, 
+            bgcolor: tokens.bgElevated, 
             border: '1px solid rgba(255,255,255,0.1)',
-            fontSize: '0.7rem',
+            fontSize: '0.7rem', 
             fontWeight: 800,
             color: tokens.textPrimary
           }}
@@ -160,7 +168,7 @@ const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, onClick, onSt
         </Avatar>
       </Box>
 
-      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+      <Stack spacing={1} sx={{ mt: 1 }}>
         {task.status === 'todo' && (
           <Button
             fullWidth
@@ -173,7 +181,7 @@ const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, onClick, onSt
               e.stopPropagation();
               onStart?.(task.taskId);
             }}
-            sx={{
+            sx={{ 
               borderRadius: '12px',
               bgcolor: tokens.successMain,
               '&:hover': { bgcolor: tokens.successMain, opacity: 0.9 }
@@ -194,7 +202,7 @@ const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, onClick, onSt
               e.stopPropagation();
               onSubmit?.(task.taskId);
             }}
-            sx={{
+            sx={{ 
               borderRadius: '12px',
               bgcolor: tokens.secondaryMain,
               '&:hover': { bgcolor: tokens.secondaryMain, opacity: 0.9 }
@@ -202,6 +210,40 @@ const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, onClick, onSt
           >
             Submit
           </Button>
+        )}
+        {task.status === 'in-review' && role === 'manager' && (
+          <Stack direction="row" spacing={1}>
+            <Button
+              fullWidth
+              size="small"
+              variant="contained"
+              color="success"
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onApprove?.(task.taskId);
+              }}
+              sx={{ borderRadius: '12px', fontWeight: 700 }}
+            >
+              Approve
+            </Button>
+            <Button
+              fullWidth
+              size="small"
+              variant="outlined"
+              color="error"
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onReject?.(task.taskId);
+              }}
+              sx={{ borderRadius: '12px', fontWeight: 700 }}
+            >
+              Reject
+            </Button>
+          </Stack>
         )}
       </Stack>
     </Card>
@@ -218,10 +260,12 @@ interface TaskColumnProps {
   onTaskClick?: (task: Task) => void;
   onStartTask: (taskId: string) => void;
   onSubmitTask: (taskId: string) => void;
+  onApproveTask: (taskId: string) => void;
+  onRejectTask: (taskId: string) => void;
 }
 
-const TaskColumn: React.FC<TaskColumnProps> = ({
-  id, title, icon, tasks, role, onAddTask, onTaskClick, onStartTask, onSubmitTask
+const TaskColumn: React.FC<TaskColumnProps> = ({ 
+  id, title, icon, tasks, role, onAddTask, onTaskClick, onStartTask, onSubmitTask, onApproveTask, onRejectTask 
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -243,12 +287,12 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
     >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box sx={{
-            width: 32,
-            height: 32,
-            borderRadius: '10px',
-            display: 'flex',
-            alignItems: 'center',
+          <Box sx={{ 
+            width: 32, 
+            height: 32, 
+            borderRadius: '10px', 
+            display: 'flex', 
+            alignItems: 'center', 
             justifyContent: 'center',
             bgcolor: 'rgba(255, 255, 255, 0.03)',
             border: '1px solid rgba(255, 255, 255, 0.05)'
@@ -259,11 +303,11 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
             {title}
           </Typography>
         </Box>
-        <IconButton
-          size="small"
+        <IconButton 
+          size="small" 
           onClick={() => onAddTask?.(id as Task['status'])}
-          sx={{
-            bgcolor: 'rgba(255, 255, 255, 0.05)',
+          sx={{ 
+            bgcolor: 'rgba(255, 255, 255, 0.05)', 
             borderRadius: '8px',
             '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.1)' }
           }}
@@ -272,7 +316,7 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
         </IconButton>
       </Box>
 
-      <SortableContext
+      <SortableContext 
         id={id}
         items={tasks.map(t => t.taskId)}
         strategy={verticalListSortingStrategy}
@@ -280,21 +324,23 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
         <Stack spacing={2} sx={{ flexGrow: 1 }}>
           {tasks.length > 0 ? (
             tasks.map((task: Task) => (
-              <SortableTaskCard
-                key={task.taskId}
-                task={task}
+              <SortableTaskCard 
+                key={task.taskId} 
+                task={task} 
                 role={role}
                 onClick={() => onTaskClick?.(task)}
                 onStart={onStartTask}
                 onSubmit={onSubmitTask}
+                onApprove={onApproveTask}
+                onReject={onRejectTask}
               />
             ))
           ) : (
-            <Box
-              sx={{
-                flexGrow: 1,
-                display: 'flex',
-                alignItems: 'center',
+            <Box 
+              sx={{ 
+                flexGrow: 1, 
+                display: 'flex', 
+                alignItems: 'center', 
                 justifyContent: 'center',
                 border: '2px dashed rgba(148, 163, 184, 0.1)',
                 borderRadius: '24px',
@@ -317,6 +363,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [rejectingTaskId, setRejectingTaskId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [isRejecting, setIsRejecting] = useState(false);
   const startStatusRef = useRef<Task['status'] | null>(null);
 
   const sensors = useSensors(
@@ -361,6 +410,44 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
     } catch (error) {
       console.error('Failed to submit task', error);
       fetchTasks();
+    }
+  };
+
+  const handleApproveTask = async (taskId: string) => {
+    try {
+      await api.tasks.approve(taskId);
+      setTasks(prev => prev.map(t => t.taskId === taskId ? { ...t, status: 'done' } : t));
+    } catch (error) {
+      console.error('Failed to approve task', error);
+      fetchTasks();
+    }
+  };
+
+  const handleRejectTask = (taskId: string) => {
+    setRejectingTaskId(taskId);
+    setRejectionReason('');
+  };
+
+  const confirmRejection = async () => {
+    if (!rejectingTaskId || !rejectionReason.trim()) return;
+
+    try {
+      setIsRejecting(true);
+      // 1. Add comment with reason
+      await api.comments.create({
+        taskId: rejectingTaskId,
+        content: `Rejected: ${rejectionReason}`
+      });
+      // 2. Call reject API
+      await api.tasks.reject(rejectingTaskId);
+      
+      setTasks(prev => prev.map(t => t.taskId === rejectingTaskId ? { ...t, status: 'in-progress' } : t));
+      setRejectingTaskId(null);
+    } catch (error) {
+      console.error('Failed to reject task', error);
+      fetchTasks();
+    } finally {
+      setIsRejecting(false);
     }
   };
 
@@ -440,7 +527,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
         } else if (initialStatus === 'in-review' && overContainer === 'done' && role === 'manager') {
           await api.tasks.approve(activeId);
         } else if (initialStatus === 'in-review' && overContainer === 'in-progress' && role === 'manager') {
-          await api.tasks.reject(activeId);
+          handleRejectTask(activeId); // Prompt for reason even on drag
         } else {
           await api.tasks.update(activeId, { status: overContainer });
         }
@@ -454,7 +541,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
       const newIndex = tasks.findIndex((t) => t.taskId === overId);
       setTasks((items) => arrayMove(items, oldIndex, newIndex));
     }
-
+    
     startStatusRef.current = null;
   };
 
@@ -490,46 +577,98 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-    >
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(4, 1fr)' }, gap: 3 }}>
-        {columns.map(col => (
-          <TaskColumn
-            key={col.id}
-            id={col.id}
-            title={col.title}
-            icon={col.icon}
-            tasks={tasks.filter(t => t.status === col.id)}
-            role={role}
-            onAddTask={onAddTask}
-            onTaskClick={onTaskClick}
-            onStartTask={handleStartTask}
-            onSubmitTask={handleSubmitTask}
-          />
-        ))}
-      </Box>
-      <DragOverlay dropAnimation={{
-        sideEffects: defaultDropAnimationSideEffects({
-          styles: {
-            active: {
-              opacity: '0.5',
+    <>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+      >
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(4, 1fr)' }, gap: 3 }}>
+          {columns.map(col => (
+            <TaskColumn
+              key={col.id}
+              id={col.id}
+              title={col.title}
+              icon={col.icon}
+              tasks={tasks.filter(t => t.status === col.id)}
+              role={role}
+              onAddTask={onAddTask}
+              onTaskClick={onTaskClick}
+              onStartTask={handleStartTask}
+              onSubmitTask={handleSubmitTask}
+              onApproveTask={handleApproveTask}
+              onRejectTask={handleRejectTask}
+            />
+          ))}
+        </Box>
+        <DragOverlay dropAnimation={{
+          sideEffects: defaultDropAnimationSideEffects({
+            styles: {
+              active: {
+                opacity: '0.5',
+              },
             },
-          },
-        }),
-      }}>
-        {activeTask ? (
-          <SortableTaskCard
-            task={activeTask}
-            role={role}
-            onClick={() => { }}
+          }),
+        }}>
+          {activeTask ? (
+            <SortableTaskCard 
+              task={activeTask} 
+              role={role}
+              onClick={() => {}} 
+            />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      {/* Rejection Dialog */}
+      <Dialog 
+        open={!!rejectingTaskId} 
+        onClose={() => setRejectingTaskId(null)}
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 3,
+              bgcolor: 'background.paper',
+              minWidth: 400
+            }
+          }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Reject Task
+          <IconButton onClick={() => setRejectingTaskId(null)} size="small">
+            <CloseRounded />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+            Please provide a reason for rejecting this task. This will be posted as a comment.
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            placeholder="Feedback for the assignee..."
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            autoFocus
           />
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setRejectingTaskId(null)} sx={{ borderRadius: 2 }}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            color="error" 
+            disabled={!rejectionReason.trim() || isRejecting}
+            onClick={confirmRejection}
+            sx={{ borderRadius: 2, fontWeight: 700 }}
+          >
+            {isRejecting ? 'Rejecting...' : 'Reject Task'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 };

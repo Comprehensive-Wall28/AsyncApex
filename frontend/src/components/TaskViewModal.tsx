@@ -14,6 +14,9 @@ import {
   TextField,
   Tooltip,
   Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   Zoom
 } from '@mui/material';
 import { 
@@ -27,7 +30,9 @@ import {
   DeleteRounded,
   SendRounded,
   DeleteOutlineRounded,
-  FullscreenRounded
+  FullscreenRounded,
+  CheckCircleRounded,
+  ErrorOutlineRounded
 } from '@mui/icons-material';
 import api from '../api';
 import type { Task, User, Team, Project, ActivityLog, Comment } from '../api/interface';
@@ -65,6 +70,12 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
   const [commentText, setCommentText] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [isImageFullOpen, setIsImageFullOpen] = useState(false);
+  
+  // Approve/Reject states
+  const [isApproving, setIsApproving] = useState(false);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [isRejecting, setIsRejecting] = useState(false);
 
   useEffect(() => {
     if (open && initialTask?.taskId) {
@@ -159,6 +170,41 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
     }
   };
 
+  const handleApprove = async () => {
+    if (!task?.taskId) return;
+    try {
+      setIsApproving(true);
+      await api.tasks.approve(task.taskId);
+      setTask(prev => prev ? { ...prev, status: 'done' } : undefined);
+      fetchLogs(task.taskId);
+    } catch (err) {
+      console.error('Failed to approve task', err);
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!task?.taskId || !rejectionReason.trim()) return;
+    try {
+      setIsRejecting(true);
+      await api.comments.create({
+        taskId: task.taskId,
+        content: `Rejected: ${rejectionReason}`
+      });
+      await api.tasks.reject(task.taskId);
+      setTask(prev => prev ? { ...prev, status: 'in-progress' } : undefined);
+      setShowRejectDialog(false);
+      setRejectionReason('');
+      fetchLogs(task.taskId);
+      fetchComments(task.taskId);
+    } catch (err) {
+      console.error('Failed to reject task', err);
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+
   if (!task && !loading && !initialLoading) return null;
 
   const assignee = task ? users.find(u => u.userId === task.assigneeId) : undefined;
@@ -193,6 +239,30 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
             <Typography variant="h5" sx={{ fontWeight: 800 }}>Task Details</Typography>
           </Box>
           <Stack direction="row" spacing={1}>
+            {task?.status === 'in-review' && role === 'manager' && (
+              <>
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={<CheckCircleRounded />}
+                  onClick={handleApprove}
+                  disabled={isApproving}
+                  sx={{ borderRadius: '12px', px: 2, fontWeight: 700 }}
+                >
+                  Approve
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={<ErrorOutlineRounded />}
+                  onClick={() => setShowRejectDialog(true)}
+                  sx={{ borderRadius: '12px', px: 2, fontWeight: 700 }}
+                >
+                  Reject
+                </Button>
+                <Divider orientation="vertical" flexItem sx={{ mx: 1, opacity: 0.1 }} />
+              </>
+            )}
             <Button
               variant="outlined"
               startIcon={<EditRounded />}
@@ -472,6 +542,54 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
             <S3Image imageKey={task.imageKey} sx={{ width: '100%', maxHeight: '90vh', objectFit: 'contain' }} />
           )}
         </Box>
+      </Dialog>
+
+      {/* Rejection Dialog */}
+      <Dialog 
+        open={showRejectDialog} 
+        onClose={() => setShowRejectDialog(false)}
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 3,
+              bgcolor: 'background.paper',
+              minWidth: 400
+            }
+          }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Reject Task
+          <IconButton onClick={() => setShowRejectDialog(false)} size="small">
+            <CloseRounded />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+            Please provide a reason for rejecting this task. This will be posted as a comment.
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            placeholder="Feedback for the assignee..."
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            autoFocus
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setShowRejectDialog(false)} sx={{ borderRadius: 2 }}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            color="error" 
+            disabled={!rejectionReason.trim() || isRejecting}
+            onClick={handleReject}
+            sx={{ borderRadius: 2, fontWeight: 700 }}
+          >
+            {isRejecting ? 'Rejecting...' : 'Reject Task'}
+          </Button>
+        </DialogActions>
       </Dialog>
     </>
   );

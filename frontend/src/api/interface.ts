@@ -50,3 +50,12 @@ export interface User {
     teamId?: string;
     teamName?: string;
 }
+
+export interface Comment {
+    commentId: string;
+    taskId: string;
+    authorId: string;
+    authorName: string;
+    content: string;
+    createdAt: string;
+}

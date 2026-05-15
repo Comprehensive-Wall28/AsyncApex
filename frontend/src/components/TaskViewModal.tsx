@@ -1,8 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
   IconButton,
   Typography,
   Box,
@@ -12,13 +9,31 @@ import {
   Divider,
   Button,
   Grid,
-  Skeleton
+  Skeleton,
+  Drawer,
+  TextField,
+  Tooltip,
+  Dialog,
+  Zoom
 } from '@mui/material';
-import { CloseRounded, EditRounded, CalendarTodayRounded, PeopleAltRounded, FlagRounded, InfoRounded, HistoryRounded, DeleteRounded } from '@mui/icons-material';
+import { 
+  CloseRounded, 
+  EditRounded, 
+  CalendarTodayRounded, 
+  PeopleAltRounded, 
+  FlagRounded, 
+  InfoRounded, 
+  HistoryRounded, 
+  DeleteRounded,
+  SendRounded,
+  DeleteOutlineRounded,
+  FullscreenRounded
+} from '@mui/icons-material';
 import api from '../api';
-import type { Task, User, Team, Project, ActivityLog } from '../api/interface';
+import type { Task, User, Team, Project, ActivityLog, Comment } from '../api/interface';
 import { S3Image } from './S3Image';
 import { tokens } from '../theme/theme';
+import { useAuth } from '../hooks/useAuth';
 
 interface TaskViewModalProps {
   open: boolean;
@@ -39,38 +54,95 @@ const priorityColorMap: Record<string, string> = {
   low: tokens.successMain,
 };
 
-export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onEdit, task, users, teams, projects, loading, role, onDelete }) => {
+export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onEdit, task: initialTask, users, teams, projects, loading: initialLoading, role, onDelete }) => {
+  const { user: currentUser } = useAuth();
+  const [task, setTask] = useState<Task | undefined>(initialTask);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
-  const [logsLoading, setLogsLoading] = useState(false);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [commentsLoading, setCommentsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [isPostingComment, setIsPostingComment] = useState(false);
+  const [isImageFullOpen, setIsImageFullOpen] = useState(false);
 
   useEffect(() => {
-    if (open && task?.taskId) {
-      const fetchLogs = async () => {
-        try {
-          setLogsLoading(true);
-          const data = await api.tasks.getLogs(task.taskId);
-          setLogs(data as any);
-        } catch (err) {
-          console.error('Failed to fetch logs', err);
-        } finally {
-          setLogsLoading(false);
-        }
-      };
-      fetchLogs();
+    if (open && initialTask?.taskId) {
+      setTask(initialTask);
+      fetchTaskDetails(initialTask.taskId);
+      fetchLogs(initialTask.taskId);
+      fetchComments(initialTask.taskId);
     } else {
+      setTask(undefined);
       setLogs([]);
+      setComments([]);
     }
-  }, [open, task?.taskId]);
+  }, [open, initialTask?.taskId]);
 
-  if (!task && !loading) return null;
+  const fetchTaskDetails = async (taskId: string) => {
+    try {
+      setLoading(true);
+      const data = await api.tasks.getOne(taskId);
+      setTask(data as any);
+    } catch (err) {
+      console.error('Failed to fetch task details', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const assignee = task ? users.find(u => u.userId === task.assigneeId) : undefined;
-  const team = task ? teams.find(t => t.teamId === task.teamId) : undefined;
-  const project = task ? projects.find(p => p.projectId === task.projectId) : undefined;
-  const priorityColor = task ? (priorityColorMap[task.priority] || tokens.textSecondary) : tokens.textSecondary;
+  const fetchLogs = async (taskId: string) => {
+    try {
+      const data = await api.tasks.getLogs(taskId);
+      setLogs(data as any);
+    } catch (err) {
+      console.error('Failed to fetch logs', err);
+    }
+  };
 
-  const handleDelete = async () => {
+  const fetchComments = async (taskId: string) => {
+    try {
+      setCommentsLoading(true);
+      const data = await api.comments.getByTask(taskId);
+      // Sort comments by date ascending (oldest first)
+      const sorted = (data as Comment[]).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      setComments(sorted);
+    } catch (err) {
+      console.error('Failed to fetch comments', err);
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+
+  const handlePostComment = async () => {
+    if (!commentText.trim() || !task?.taskId) return;
+
+    try {
+      setIsPostingComment(true);
+      const newComment = await api.comments.create({
+        taskId: task.taskId,
+        content: commentText.trim()
+      });
+      setComments(prev => [...prev, newComment as any]);
+      setCommentText('');
+    } catch (err) {
+      console.error('Failed to post comment', err);
+    } finally {
+      setIsPostingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!window.confirm('Delete this comment?')) return;
+    try {
+      await api.comments.delete(commentId);
+      setComments(prev => prev.filter(c => c.commentId !== commentId));
+    } catch (err) {
+      console.error('Failed to delete comment', err);
+    }
+  };
+
+  const handleDeleteTask = async () => {
     if (!task?.taskId) return;
     if (!window.confirm('Are you sure you want to delete this task?')) return;
 
@@ -87,262 +159,320 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
     }
   };
 
+  if (!task && !loading && !initialLoading) return null;
+
+  const assignee = task ? users.find(u => u.userId === task.assigneeId) : undefined;
+  const team = task ? teams.find(t => t.teamId === task.teamId) : undefined;
+  const project = task ? projects.find(p => p.projectId === task.projectId) : undefined;
+  const priorityColor = task ? (priorityColorMap[task.priority] || tokens.textSecondary) : tokens.textSecondary;
+
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="lg"
-      fullWidth
-      sx={{
-        '& .MuiDialog-paper': {
-          bgcolor: 'background.default',
-          borderRadius: 3,
-          height: '80vh',
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: '0 24px 48px rgba(0,0,0,0.5)'
-        }
-      }}
-    >
-      <DialogTitle component="div" sx={{ m: 0, p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <InfoRounded color="primary" />
-          <Typography variant="h5" sx={{ fontWeight: 800 }}>Task Details</Typography>
-        </Box>
-        <Stack direction="row" spacing={1}>
-          <Button
-            variant="outlined"
-            startIcon={<EditRounded />}
-            onClick={onEdit}
-            sx={{ borderRadius: 2, px: 3 }}
-          >
-            Edit Task
-          </Button>
-          {role === 'manager' && (
+    <>
+      <Drawer
+        anchor="right"
+        open={open}
+        onClose={onClose}
+        slotProps={{
+          paper: {
+            sx: {
+              width: { xs: '100%', md: '60%', lg: '45%' },
+              bgcolor: 'background.default',
+              boxShadow: '-24px 0 48px rgba(0,0,0,0.5)',
+              display: 'flex',
+              flexDirection: 'column',
+            }
+          }
+        }}
+      >
+        {/* Header */}
+        <Box sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ p: 1, borderRadius: 2, bgcolor: 'primary.main', color: 'black', display: 'flex' }}>
+              <InfoRounded fontSize="small" />
+            </Box>
+            <Typography variant="h5" sx={{ fontWeight: 800 }}>Task Details</Typography>
+          </Box>
+          <Stack direction="row" spacing={1}>
             <Button
               variant="outlined"
-              color="error"
-              startIcon={<DeleteRounded />}
-              onClick={handleDelete}
-              disabled={isDeleting}
-              sx={{ 
-                borderRadius: 2, 
-                px: 3,
-                borderColor: 'rgba(211, 47, 47, 0.5)',
-                '&:hover': {
-                  borderColor: 'error.main',
-                  bgcolor: 'rgba(211, 47, 47, 0.04)'
-                }
-              }}
+              startIcon={<EditRounded />}
+              onClick={onEdit}
+              sx={{ borderRadius: '12px', px: 2 }}
             >
-              {isDeleting ? 'Deleting...' : 'Delete Task'}
+              Edit
             </Button>
-          )}
-          <IconButton onClick={onClose} size="small">
-            <CloseRounded />
-          </IconButton>
-        </Stack>
-      </DialogTitle>
+            {role === 'manager' && (
+              <IconButton 
+                color="error" 
+                onClick={handleDeleteTask} 
+                disabled={isDeleting}
+                sx={{ borderRadius: '12px', border: '1px solid', borderColor: 'rgba(211, 47, 47, 0.2)' }}
+              >
+                <DeleteRounded />
+              </IconButton>
+            )}
+            <IconButton onClick={onClose} sx={{ borderRadius: '12px' }}>
+              <CloseRounded />
+            </IconButton>
+          </Stack>
+        </Box>
 
-      <Divider sx={{ opacity: 0.1 }} />
-
-      <DialogContent sx={{ p: 0, display: 'flex', overflow: 'hidden', flex: 1 }}>
-        {loading ? (
-          <Grid container sx={{ height: '100%', width: '100%', m: 0 }}>
-            <Grid size={{ xs: 12, md: 8 }} sx={{ p: 4, overflowY: 'auto', height: '100%' }}>
+        {/* Content Area */}
+        <Box sx={{ flex: 1, overflowY: 'auto', p: 0 }}>
+          {loading || initialLoading ? (
+            <Box sx={{ p: 4 }}>
               <Skeleton variant="text" width="60%" height={60} sx={{ mb: 4 }} />
-              <Skeleton variant="text" width="20%" sx={{ mb: 1 }} />
-              <Skeleton variant="rectangular" height={100} sx={{ mb: 4, borderRadius: 2 }} />
-              <Skeleton variant="text" width="20%" sx={{ mb: 1 }} />
-              <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 3 }} />
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }} sx={{ p: 4, bgcolor: 'rgba(255, 255, 255, 0.02)', borderLeft: '1px solid', borderColor: 'rgba(255, 255, 255, 0.05)' }}>
-              <Stack spacing={4}>
-                {[1, 2, 3, 4].map(i => (
-                  <Box key={i}>
-                    <Skeleton variant="text" width="40%" sx={{ mb: 1 }} />
-                    <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1 }} />
-                  </Box>
-                ))}
-              </Stack>
-            </Grid>
-          </Grid>
-        ) : task ? (
-          <Grid container sx={{ height: '100%', width: '100%', m: 0 }}>
-            {/* Main Content (Scrollable) */}
-            <Grid size={{ xs: 12, md: 8 }} sx={{ p: 4, overflowY: 'auto', height: '100%' }}>
-              <Typography variant="h3" sx={{ mb: 3, fontWeight: 700, letterSpacing: '-0.02em' }}>
-                {task.title}
-              </Typography>
-
-              <Box sx={{ mb: 4 }}>
-                <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, mb: 1, display: 'block' }}>
-                  Description
+              <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 3, mb: 4 }} />
+              <Skeleton variant="text" width="100%" height={100} />
+            </Box>
+          ) : task ? (
+            <Grid container sx={{ m: 0 }}>
+              {/* Main Content */}
+              <Grid size={{ xs: 12 }} sx={{ p: 4 }}>
+                <Typography variant="h3" sx={{ mb: 3, fontWeight: 800, letterSpacing: '-0.02em' }}>
+                  {task.title}
                 </Typography>
-                <Typography variant="body1" sx={{ color: 'text.primary', lineHeight: 1.7, fontSize: '1.1rem', whiteSpace: 'pre-wrap' }}>
-                  {task.description || 'No description provided.'}
-                </Typography>
-              </Box>
 
-              {task.imageKey && (
-                <Box sx={{ mt: 4 }}>
-                  <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, mb: 2, display: 'block' }}>
-                    Attachment
+                <Box sx={{ mb: 4 }}>
+                  <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800, mb: 1, display: 'block' }}>
+                    Description
                   </Typography>
-                  <Box sx={{ borderRadius: 3, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
-                    <S3Image imageKey={task.imageKey} sx={{ width: '100%', maxHeight: 500 }} />
-                  </Box>
-                </Box>
-              )}
-
-              {/* Activity Log Section */}
-              <Box sx={{ mt: 6 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-                  <HistoryRounded sx={{ color: tokens.textSecondary }} />
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>Activity Log</Typography>
-                </Box>
-                
-                {logsLoading ? (
-                  <Stack spacing={2}>
-                    <Skeleton variant="text" width="80%" />
-                    <Skeleton variant="text" width="60%" />
-                  </Stack>
-                ) : logs.length > 0 ? (
-                  <Stack spacing={3} sx={{ position: 'relative', pl: 3 }}>
-                    {/* Vertical line for timeline */}
-                    <Box sx={{ 
-                      position: 'absolute', 
-                      left: 7, 
-                      top: 10, 
-                      bottom: 10, 
-                      width: 2, 
-                      bgcolor: 'rgba(255,255,255,0.05)',
-                      borderRadius: 1
-                    }} />
-                    
-                    {logs.map((log, idx) => (
-                      <Box key={idx} sx={{ position: 'relative' }}>
-                        {/* Timeline dot */}
-                        <Box sx={{ 
-                          position: 'absolute', 
-                          left: -27, 
-                          top: 6, 
-                          width: 10, 
-                          height: 10, 
-                          borderRadius: '50%', 
-                          bgcolor: idx === 0 ? tokens.secondaryMain : 'rgba(255,255,255,0.2)',
-                          border: '2px solid background.default',
-                          zIndex: 1
-                        }} />
-                        
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', mb: 0.5 }}>
-                          {log.userName || 'Someone'} moved task from{' '}
-                          <Box component="span" sx={{ color: tokens.textSecondary, textTransform: 'uppercase', fontSize: '0.75rem' }}>{log.oldStatus}</Box>
-                          {' to '}
-                          <Box component="span" sx={{ color: tokens.secondaryMain, fontWeight: 700, textTransform: 'uppercase', fontSize: '0.75rem' }}>{log.newStatus}</Box>
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block' }}>
-                          {new Date(log.timestamp).toLocaleString(undefined, { 
-                            dateStyle: 'medium', 
-                            timeStyle: 'short' 
-                          })}
-                        </Typography>
-                      </Box>
-                    ))}
-                  </Stack>
-                ) : (
-                  <Typography variant="body2" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
-                    No activity recorded yet.
+                  <Typography variant="body1" sx={{ color: 'text.primary', lineHeight: 1.8, fontSize: '1.05rem', whiteSpace: 'pre-wrap' }}>
+                    {task.description || 'No description provided.'}
                   </Typography>
-                )}
-              </Box>
-            </Grid>
-
-            {/* Sidebar Metadata (Fixed) */}
-            <Grid size={{ xs: 12, md: 4 }} sx={{
-              p: 4,
-              bgcolor: 'rgba(255, 255, 255, 0.02)',
-              borderLeft: '1px solid',
-              borderColor: 'rgba(255, 255, 255, 0.05)',
-              display: 'flex',
-              flexDirection: 'column'
-            }}>
-              <Stack spacing={4}>
-
-                <Box>
-                  <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, mb: 1.5, display: 'block' }}>
-                    Status
-                  </Typography>
-                  <Chip
-                    label={task.status.replace('-', ' ').toUpperCase()}
-                    sx={{
-                      fontWeight: 700,
-                      bgcolor: 'primary.main',
-                      color: 'white',
-                      px: 1
-                    }}
-                  />
                 </Box>
 
-                <Box>
-                  <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, mb: 1.5, display: 'block' }}>
-                    Priority
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <FlagRounded sx={{ color: priorityColor }} />
-                    <Typography sx={{ fontWeight: 700, color: priorityColor, textTransform: 'uppercase' }}>
-                      {task.priority}
+                {task.imageKey && (
+                  <Box sx={{ mb: 6 }}>
+                    <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800, mb: 2, display: 'block' }}>
+                      Attachment
                     </Typography>
+                    <Box 
+                      sx={{ 
+                        position: 'relative',
+                        borderRadius: 4, 
+                        overflow: 'hidden', 
+                        border: '1px solid', 
+                        borderColor: 'divider',
+                        cursor: 'zoom-in',
+                        '&:hover .expand-overlay': { opacity: 1 }
+                      }}
+                      onClick={() => setIsImageFullOpen(true)}
+                    >
+                      <S3Image imageKey={task.imageKey} sx={{ width: '100%', maxHeight: 400 }} />
+                      <Box 
+                        className="expand-overlay"
+                        sx={{ 
+                          position: 'absolute', 
+                          inset: 0, 
+                          bgcolor: 'rgba(0,0,0,0.3)', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          opacity: 0,
+                          transition: 'opacity 0.2s'
+                        }}
+                      >
+                        <FullscreenRounded sx={{ fontSize: 40, color: 'white' }} />
+                      </Box>
+                    </Box>
                   </Box>
-                </Box>
+                )}
 
-                <Box>
-                  <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, mb: 1.5, display: 'block' }}>
-                    Assignee
-                  </Typography>
-                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-                    <Avatar sx={{ bgcolor: 'primary.dark', fontWeight: 700 }}>
-                      {assignee ? assignee.name.substring(0, 2).toUpperCase() : '?'}
-                    </Avatar>
+                <Divider sx={{ mb: 4, opacity: 0.5 }} />
+
+                {/* Metadata Grid */}
+                <Grid container spacing={3} sx={{ mb: 6 }}>
+                  <Grid size={{ xs: 6, md: 3 }}>
+                    <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800, mb: 1, display: 'block' }}>Status</Typography>
+                    <Chip label={task.status.replace('-', ' ').toUpperCase()} size="small" sx={{ fontWeight: 800, bgcolor: 'primary.main', color: 'black' }} />
+                  </Grid>
+                  <Grid size={{ xs: 6, md: 3 }}>
+                    <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800, mb: 1, display: 'block' }}>Priority</Typography>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                      <FlagRounded sx={{ color: priorityColor, fontSize: 18 }} />
+                      <Typography sx={{ fontWeight: 800, color: priorityColor, fontSize: '0.875rem' }}>{task.priority.toUpperCase()}</Typography>
+                    </Stack>
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800, mb: 1, display: 'block' }}>Assignee</Typography>
+                    <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+                      <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.dark', fontSize: '0.875rem', fontWeight: 800 }}>
+                        {assignee ? assignee.name.substring(0, 2).toUpperCase() : '?'}
+                      </Avatar>
+                      <Typography sx={{ fontWeight: 700 }}>{assignee ? assignee.name : 'Unassigned'}</Typography>
+                    </Stack>
+                  </Grid>
+                </Grid>
+
+                <Box sx={{ mb: 6, p: 3, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <Stack direction="row" spacing={4}>
                     <Box>
-                      <Typography sx={{ fontWeight: 600 }}>{assignee ? assignee.name : 'Unassigned'}</Typography>
-                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>{assignee ? assignee.email : 'N/A'}</Typography>
+                      <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800, mb: 0.5, display: 'block' }}>Team</Typography>
+                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                        <PeopleAltRounded sx={{ fontSize: 16, opacity: 0.5 }} />
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{team ? team.name : 'N/A'}</Typography>
+                      </Stack>
+                    </Box>
+                    <Box>
+                      <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800, mb: 0.5, display: 'block' }}>Project</Typography>
+                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                        <CalendarTodayRounded sx={{ fontSize: 16, opacity: 0.5 }} />
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{project ? project.name : 'N/A'}</Typography>
+                      </Stack>
                     </Box>
                   </Stack>
                 </Box>
 
-                <Box>
-                  <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, mb: 1.5, display: 'block' }}>
-                    Team & Project
-                  </Typography>
-                  <Stack spacing={1}>
-                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                      <PeopleAltRounded fontSize="small" sx={{ opacity: 0.6 }} />
-                      <Typography variant="body2">{team ? team.name : 'No Team'}</Typography>
-                    </Stack>
-                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                      <CalendarTodayRounded fontSize="small" sx={{ opacity: 0.6 }} />
-                      <Typography variant="body2">{project ? project.name : 'No Project'}</Typography>
-                    </Stack>
+                {/* Comments Section */}
+                <Box sx={{ mb: 6 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 800 }}>Comments</Typography>
+                    <Chip label={comments.length} size="small" sx={{ fontWeight: 800, height: 20 }} />
+                  </Box>
+
+                  {/* Comment Input */}
+                  <Box sx={{ mb: 4, display: 'flex', gap: 2 }}>
+                    <Avatar sx={{ width: 36, height: 36, bgcolor: 'secondary.main' }}>
+                      {currentUser?.name?.substring(0, 2).toUpperCase() || 'U'}
+                    </Avatar>
+                    <Box sx={{ flex: 1 }}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        placeholder="Write a comment..."
+                        value={commentText}
+                        onChange={(e) => setCommentText(e.target.value)}
+                        variant="outlined"
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: 3,
+                            bgcolor: 'rgba(255,255,255,0.03)',
+                            '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' },
+                          }
+                        }}
+                      />
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                        <Button
+                          variant="contained"
+                          disabled={!commentText.trim() || isPostingComment}
+                          onClick={handlePostComment}
+                          startIcon={<SendRounded />}
+                          sx={{ borderRadius: '12px', fontWeight: 700 }}
+                        >
+                          Post
+                        </Button>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  {/* Comment Feed */}
+                  <Stack spacing={3}>
+                    {commentsLoading ? (
+                      <Skeleton variant="rectangular" height={100} sx={{ borderRadius: 3 }} />
+                    ) : comments.length > 0 ? (
+                      comments.map((comment) => (
+                        <Box key={comment.commentId} sx={{ display: 'flex', gap: 2 }}>
+                          <Avatar sx={{ width: 36, height: 36, bgcolor: 'rgba(255,255,255,0.1)', fontSize: '0.875rem' }}>
+                            {comment.authorName.substring(0, 2).toUpperCase()}
+                          </Avatar>
+                          <Box sx={{ flex: 1 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                <Typography sx={{ fontWeight: 700, fontSize: '0.9rem' }}>{comment.authorName}</Typography>
+                                <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                                  {new Date(comment.createdAt).toLocaleDateString()} at {new Date(comment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </Typography>
+                              </Box>
+                              {(currentUser?.userId === comment.authorId || role === 'manager') && (
+                                <Tooltip title="Delete comment">
+                                  <IconButton size="small" onClick={() => handleDeleteComment(comment.commentId)} sx={{ opacity: 0.5, '&:hover': { opacity: 1, color: 'error.main' } }}>
+                                    <DeleteOutlineRounded fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                            </Box>
+                            <Typography variant="body2" sx={{ color: 'text.primary', lineHeight: 1.5 }}>
+                              {comment.content}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      ))
+                    ) : (
+                      <Typography variant="body2" sx={{ color: 'text.disabled', fontStyle: 'italic', textAlign: 'center', py: 2 }}>
+                        No comments yet. Be the first to start the conversation!
+                      </Typography>
+                    )}
                   </Stack>
                 </Box>
 
-                {task.deadline && (
-                  <Box>
-                    <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, mb: 1.5, display: 'block' }}>
-                      Deadline
-                    </Typography>
-                    <Typography sx={{ fontWeight: 600, color: 'error.light' }}>
-                      {new Date(task.deadline).toLocaleDateString(undefined, { dateStyle: 'long' })}
-                    </Typography>
+                {/* Activity Log Section */}
+                <Box sx={{ mb: 4 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+                    <HistoryRounded sx={{ color: tokens.textSecondary }} />
+                    <Typography variant="h6" sx={{ fontWeight: 800 }}>Activity Log</Typography>
                   </Box>
-                )}
-
-              </Stack>
+                  
+                  {logs.length > 0 ? (
+                    <Stack spacing={3} sx={{ position: 'relative', pl: 3 }}>
+                      <Box sx={{ position: 'absolute', left: 7, top: 10, bottom: 10, width: 2, bgcolor: 'rgba(255,255,255,0.05)', borderRadius: 1 }} />
+                      {logs.map((log, idx) => (
+                        <Box key={idx} sx={{ position: 'relative' }}>
+                          <Box sx={{ position: 'absolute', left: -27, top: 6, width: 10, height: 10, borderRadius: '50%', bgcolor: idx === 0 ? tokens.secondaryMain : 'rgba(255,255,255,0.2)', border: '2px solid background.default', zIndex: 1 }} />
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', mb: 0.5 }}>
+                            {log.userName || 'Someone'} moved task from{' '}
+                            <Box component="span" sx={{ color: tokens.textSecondary, textTransform: 'uppercase', fontSize: '0.75rem' }}>{log.oldStatus}</Box>
+                            {' to '}
+                            <Box component="span" sx={{ color: tokens.secondaryMain, fontWeight: 700, textTransform: 'uppercase', fontSize: '0.75rem' }}>{log.newStatus}</Box>
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block' }}>
+                            {new Date(log.timestamp).toLocaleString()}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  ) : (
+                    <Typography variant="body2" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
+                      No activity recorded yet.
+                    </Typography>
+                  )}
+                </Box>
+              </Grid>
             </Grid>
-          </Grid>
-        ) : null}
-      </DialogContent>
-    </Dialog>
+          ) : null}
+        </Box>
+      </Drawer>
+
+      {/* Full Image Dialog */}
+      <Dialog
+        open={isImageFullOpen}
+        onClose={() => setIsImageFullOpen(false)}
+        maxWidth="xl"
+        slots={{ transition: Zoom }}
+        slotProps={{
+          paper: {
+            sx: {
+              bgcolor: 'transparent',
+              boxShadow: 'none',
+              backgroundImage: 'none',
+              overflow: 'hidden'
+            }
+          }
+        }}
+      >
+        <Box sx={{ position: 'relative' }}>
+          <IconButton 
+            onClick={() => setIsImageFullOpen(false)}
+            sx={{ position: 'absolute', right: 16, top: 16, bgcolor: 'rgba(0,0,0,0.5)', color: 'white', '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' } }}
+          >
+            <CloseRounded />
+          </IconButton>
+          {task?.imageKey && (
+            <S3Image imageKey={task.imageKey} sx={{ width: '100%', maxHeight: '90vh', objectFit: 'contain' }} />
+          )}
+        </Box>
+      </Dialog>
+    </>
   );
 };

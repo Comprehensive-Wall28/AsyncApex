@@ -112,6 +112,12 @@ export const api = {
     },
     getPresignedUrl: (key: string, bucket?: string) => 
       client.get<{ url: string }>(`/s3/presigned/${key}${bucket ? `?bucket=${bucket}` : ''}`),
+  },
+
+  comments: {
+    getByTask: (taskId: string) => client.get(`/comments/by-task/${taskId}`),
+    create: (data: { taskId: string; content: string }) => client.post('/comments', data),
+    delete: (id: string) => client.delete(`/comments/${id}`),
   }
 };
 

@@ -108,7 +108,8 @@ export const api = {
       });
       if (!res.ok) throw new Error('Failed to upload file');
       return res.json();
-    }
+    },
+    getPresignedUrl: (key: string) => client.get<{ url: string }>(`/s3/presigned/${key}`),
   }
 };
 

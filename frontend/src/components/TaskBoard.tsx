@@ -3,6 +3,7 @@ import { Box, Typography, Card, Avatar, Chip, Stack, CircularProgress } from '@m
 import api from '../api';
 import type { Task } from '../api/interface';
 import { tokens } from '../theme/theme';
+import { S3Image } from './S3Image';
 
 interface TaskBoardProps {
   teamId?: string;
@@ -112,23 +113,11 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
                   }}
                 >
                   {task.imageKey && (
-                    <Box
-                      sx={{
-                        width: '100%',
-                        height: 80,
-                        borderRadius: '6px',
-                        mb: 1.5,
-                        bgcolor: 'action.hover',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'text.secondary',
-                        fontSize: '0.75rem',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                      }}
-                    >
-                      [S3 Image]
+                    <Box sx={{ width: '100%', height: 100, borderRadius: '6px', mb: 1.5, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
+                      <S3Image 
+                        imageKey={task.imageKey} 
+                        sx={{ width: '100%', height: '100%' }} 
+                      />
                     </Box>
                   )}
                   <Typography sx={{ fontWeight: 600, mb: 1.5, fontSize: '0.875rem', color: 'text.primary' }}>

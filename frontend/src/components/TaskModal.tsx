@@ -16,6 +16,7 @@ import {
 import { CloseRounded, CloudUploadRounded, DeleteRounded } from '@mui/icons-material';
 import api from '../api';
 import type { Task, User, Team, Project } from '../api/interface';
+import { S3Image } from './S3Image';
 
 interface TaskModalProps {
   open: boolean;
@@ -58,7 +59,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
         setAssigneeId(task.assigneeId || '');
         setTeamId(task.teamId || '');
         setProjectId(task.projectId || '');
-        setPreviewUrl(task.imageKey ? `S3 File: ${task.imageKey}` : null); // Mock preview for existing S3 URL
+        setPreviewUrl(task.imageKey || null);
         setSelectedFile(null);
       } else {
         resetForm();
@@ -133,7 +134,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
 
   const handleRemoveFile = () => {
     setSelectedFile(null);
-    setPreviewUrl(task?.imageKey ? `S3 File: ${task.imageKey}` : null);
+    setPreviewUrl(task?.imageKey || null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -306,12 +307,14 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
               <Box>
                 <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>Attachment (Image)</Typography>
                 
-                {previewUrl && !selectedFile && task?.imageKey ? (
-                  <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body2" color="text.secondary">Current Image: {task.imageKey}</Typography>
-                    <Button size="small" color="error" onClick={() => { setPreviewUrl(null); }}>Remove/Replace</Button>
-                  </Box>
-                ) : previewUrl && selectedFile ? (
+                 {previewUrl && !selectedFile ? (
+                   <Box sx={{ position: 'relative', border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
+                     <S3Image imageKey={previewUrl} sx={{ width: '100%', maxHeight: 300 }} />
+                     <IconButton size="small" color="error" onClick={() => { setPreviewUrl(null); }} sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'background.paper', '&:hover': { bgcolor: 'error.main', color: 'white' } }}>
+                       <DeleteRounded fontSize="small" />
+                     </IconButton>
+                   </Box>
+                 ) : previewUrl && selectedFile ? (
                   <Box sx={{ position: 'relative', border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
                     {selectedFile.type.startsWith('image/') ? (
                       <Box component="img" src={previewUrl} sx={{ width: '100%', maxHeight: 200, objectFit: 'cover', display: 'block' }} />

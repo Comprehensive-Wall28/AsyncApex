@@ -204,7 +204,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
 
   return (
     <Dialog open={open} onClose={!loading ? onClose : undefined} maxWidth="sm" fullWidth sx={{ '& .MuiDialog-paper': { bgcolor: 'background.default', borderRadius: 2 } }}>
-      <DialogTitle sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <DialogTitle component="div" sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           {task ? 'Edit Task' : 'Create New Task'}
         </Typography>
@@ -267,7 +267,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
                     select
                     fullWidth
                     label="Assignee"
-                    value={assigneeId}
+                    value={users.some(u => u.userId === assigneeId) ? assigneeId : ''}
                     onChange={(e) => setAssigneeId(e.target.value)}
                   >
                     <MenuItem value=""><em>Unassigned</em></MenuItem>
@@ -279,7 +279,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
                     select
                     fullWidth
                     label="Team"
-                    value={teamId}
+                    value={teams.some(t => t.teamId === teamId) ? teamId : ''}
                     onChange={(e) => setTeamId(e.target.value)}
                   >
                     <MenuItem value=""><em>None</em></MenuItem>
@@ -293,7 +293,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
                 select
                 fullWidth
                 label="Project"
-                value={projectId}
+                value={projects.some(p => p.projectId === projectId) ? projectId : ''}
                 onChange={(e) => setProjectId(e.target.value)}
               >
                 <MenuItem value=""><em>None</em></MenuItem>

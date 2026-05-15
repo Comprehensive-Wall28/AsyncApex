@@ -238,4 +238,16 @@ export class TasksController {
   rejectTask(@Param('id') id: string, @Req() req: any) {
     return this.tasksService.rejectTask(id, req.user);
   }
+
+  @Get(':id/logs')
+  @ApiOperation({
+    summary: 'Get task activity logs',
+    description: 'Retrieve the audit log of status changes for a specific task.',
+  })
+  @ApiParam({ name: 'id', description: 'taskId (UUID)' })
+  @ApiResponse({ status: 200, description: 'Array of activity log items' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
+  getLogs(@Param('id') id: string, @Req() req: any) {
+    return this.tasksService.getActivityLogs(id, req.user);
+  }
 }

@@ -216,6 +216,8 @@ export const Tasks: React.FC = () => {
         teams={teams}
         projects={projects}
         loading={isDataLoading}
+        role={user?.role}
+        onDelete={() => setBoardRefreshKey(prev => prev + 1)}
       />
 
       <TaskModal

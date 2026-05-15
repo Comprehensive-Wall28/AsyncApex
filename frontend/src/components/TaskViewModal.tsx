@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -14,8 +14,9 @@ import {
   Grid,
   Skeleton
 } from '@mui/material';
-import { CloseRounded, EditRounded, CalendarTodayRounded, PeopleAltRounded, FlagRounded, InfoRounded } from '@mui/icons-material';
-import type { Task, User, Team, Project } from '../api/interface';
+import { CloseRounded, EditRounded, CalendarTodayRounded, PeopleAltRounded, FlagRounded, InfoRounded, HistoryRounded, DeleteRounded } from '@mui/icons-material';
+import api from '../api';
+import type { Task, User, Team, Project, ActivityLog } from '../api/interface';
 import { S3Image } from './S3Image';
 import { tokens } from '../theme/theme';
 
@@ -28,6 +29,8 @@ interface TaskViewModalProps {
   teams: Team[];
   projects: Project[];
   loading?: boolean;
+  role?: 'manager' | 'employee';
+  onDelete?: () => void;
 }
 
 const priorityColorMap: Record<string, string> = {
@@ -36,13 +39,53 @@ const priorityColorMap: Record<string, string> = {
   low: tokens.successMain,
 };
 
-export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onEdit, task, users, teams, projects, loading }) => {
+export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onEdit, task, users, teams, projects, loading, role, onDelete }) => {
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    if (open && task?.taskId) {
+      const fetchLogs = async () => {
+        try {
+          setLogsLoading(true);
+          const data = await api.tasks.getLogs(task.taskId);
+          setLogs(data as any);
+        } catch (err) {
+          console.error('Failed to fetch logs', err);
+        } finally {
+          setLogsLoading(false);
+        }
+      };
+      fetchLogs();
+    } else {
+      setLogs([]);
+    }
+  }, [open, task?.taskId]);
+
   if (!task && !loading) return null;
 
   const assignee = task ? users.find(u => u.userId === task.assigneeId) : undefined;
   const team = task ? teams.find(t => t.teamId === task.teamId) : undefined;
   const project = task ? projects.find(p => p.projectId === task.projectId) : undefined;
   const priorityColor = task ? (priorityColorMap[task.priority] || tokens.textSecondary) : tokens.textSecondary;
+
+  const handleDelete = async () => {
+    if (!task?.taskId) return;
+    if (!window.confirm('Are you sure you want to delete this task?')) return;
+
+    try {
+      setIsDeleting(true);
+      await api.tasks.delete(task.taskId);
+      onDelete?.();
+      onClose();
+    } catch (err) {
+      console.error('Failed to delete task', err);
+      alert('Failed to delete task. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <Dialog
@@ -75,6 +118,26 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
           >
             Edit Task
           </Button>
+          {role === 'manager' && (
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteRounded />}
+              onClick={handleDelete}
+              disabled={isDeleting}
+              sx={{ 
+                borderRadius: 2, 
+                px: 3,
+                borderColor: 'rgba(211, 47, 47, 0.5)',
+                '&:hover': {
+                  borderColor: 'error.main',
+                  bgcolor: 'rgba(211, 47, 47, 0.04)'
+                }
+              }}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Task'}
+            </Button>
+          )}
           <IconButton onClick={onClose} size="small">
             <CloseRounded />
           </IconButton>
@@ -131,6 +194,68 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
                   </Box>
                 </Box>
               )}
+
+              {/* Activity Log Section */}
+              <Box sx={{ mt: 6 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+                  <HistoryRounded sx={{ color: tokens.textSecondary }} />
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>Activity Log</Typography>
+                </Box>
+                
+                {logsLoading ? (
+                  <Stack spacing={2}>
+                    <Skeleton variant="text" width="80%" />
+                    <Skeleton variant="text" width="60%" />
+                  </Stack>
+                ) : logs.length > 0 ? (
+                  <Stack spacing={3} sx={{ position: 'relative', pl: 3 }}>
+                    {/* Vertical line for timeline */}
+                    <Box sx={{ 
+                      position: 'absolute', 
+                      left: 7, 
+                      top: 10, 
+                      bottom: 10, 
+                      width: 2, 
+                      bgcolor: 'rgba(255,255,255,0.05)',
+                      borderRadius: 1
+                    }} />
+                    
+                    {logs.map((log, idx) => (
+                      <Box key={idx} sx={{ position: 'relative' }}>
+                        {/* Timeline dot */}
+                        <Box sx={{ 
+                          position: 'absolute', 
+                          left: -27, 
+                          top: 6, 
+                          width: 10, 
+                          height: 10, 
+                          borderRadius: '50%', 
+                          bgcolor: idx === 0 ? tokens.secondaryMain : 'rgba(255,255,255,0.2)',
+                          border: '2px solid background.default',
+                          zIndex: 1
+                        }} />
+                        
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', mb: 0.5 }}>
+                          {log.userName || 'Someone'} moved task from{' '}
+                          <Box component="span" sx={{ color: tokens.textSecondary, textTransform: 'uppercase', fontSize: '0.75rem' }}>{log.oldStatus}</Box>
+                          {' to '}
+                          <Box component="span" sx={{ color: tokens.secondaryMain, fontWeight: 700, textTransform: 'uppercase', fontSize: '0.75rem' }}>{log.newStatus}</Box>
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block' }}>
+                          {new Date(log.timestamp).toLocaleString(undefined, { 
+                            dateStyle: 'medium', 
+                            timeStyle: 'short' 
+                          })}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                ) : (
+                  <Typography variant="body2" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
+                    No activity recorded yet.
+                  </Typography>
+                )}
+              </Box>
             </Grid>
 
             {/* Sidebar Metadata (Fixed) */}

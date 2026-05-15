@@ -1,12 +1,48 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Typography, Card, Avatar, Chip, Stack, CircularProgress, IconButton, Skeleton } from '@mui/material';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Box, 
+  Typography, 
+  Card, 
+  Avatar, 
+  Chip, 
+  Stack, 
+  IconButton, 
+  Skeleton,
+  Button
+} from '@mui/material';
 import { 
   AddRounded, 
   RadioButtonUncheckedRounded, 
   AccessTimeRounded, 
   CheckCircleRounded,
-  TuneRounded
+  TuneRounded,
+  PlayArrowRounded,
+  SendRounded
 } from '@mui/icons-material';
+import {
+  DndContext, 
+  closestCorners,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+  defaultDropAnimationSideEffects,
+  useDroppable,
+} from '@dnd-kit/core';
+import type {
+  DragStartEvent,
+  DragOverEvent,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import api from '../api';
 import type { Task } from '../api/interface';
 import { tokens } from '../theme/theme';
@@ -20,19 +56,289 @@ interface TaskBoardProps {
   onAddTask?: (status: Task['status']) => void;
 }
 
-// Priority colour mapping references centralized tokens.
 const priorityColorMap: Record<string, string> = {
   high:   tokens.errorMain,
   medium: tokens.warningMain,
   low:    tokens.successMain,
 };
 
+interface SortableTaskCardProps {
+  task: Task;
+  role: 'manager' | 'employee';
+  onClick: () => void;
+  onStart?: (taskId: string) => void;
+  onSubmit?: (taskId: string) => void;
+}
+
+const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, onClick, onStart, onSubmit }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: task.taskId, data: { task } });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.3 : 1,
+    zIndex: isDragging ? 1000 : 1,
+  };
+
+  const priorityColor = priorityColorMap[task.priority] || tokens.textSecondary;
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      onClick={() => {
+        if (transform) return;
+        onClick();
+      }}
+      sx={{
+        p: 2.5,
+        cursor: 'grab',
+        bgcolor: 'rgba(18, 22, 32, 0.8)',
+        borderRadius: '24px',
+        border: '1px solid rgba(148, 163, 184, 0.1)',
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        position: 'relative',
+        '&:hover': { 
+          transform: 'translateY(-4px) scale(1.01)',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+          borderColor: tokens.secondaryMain,
+          bgcolor: 'rgba(22, 28, 40, 1)'
+        },
+        '&:active': { cursor: 'grabbing' },
+      }}
+    >
+      {task.imageKey && (
+        <Box sx={{ width: '100%', height: 140, borderRadius: '16px', mb: 2, overflow: 'hidden', border: '1px solid', borderColor: 'rgba(255,255,255,0.05)' }}>
+          <S3Image 
+            imageKey={task.imageKey.replace('uploads/', 'resized/')} 
+            bucket="mini-jira-resized"
+            sx={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+          />
+        </Box>
+      )}
+      <Typography sx={{ fontWeight: 600, mb: 1.5, fontSize: '0.95rem', color: 'text.primary', lineHeight: 1.4 }}>
+        {task.title}
+      </Typography>
+
+      {task.deadline && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 2, color: 'text.secondary' }}>
+          <AccessTimeRounded sx={{ fontSize: 14 }} />
+          <Typography sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
+            {new Date(task.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </Typography>
+        </Box>
+      )}
+      
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <Chip
+            label={task.priority.toUpperCase()}
+            size="small"
+            sx={{
+              height: 22,
+              fontSize: '0.65rem',
+              fontWeight: 800,
+              color: priorityColor,
+              bgcolor: `${priorityColor}1A`,
+              border: `1px solid ${priorityColor}33`,
+              borderRadius: '6px',
+              '& .MuiChip-label': { px: 1 },
+            }}
+          />
+        </Stack>
+        <Avatar 
+          sx={{ 
+            width: 28, 
+            height: 28, 
+            bgcolor: tokens.bgElevated, 
+            border: '1px solid rgba(255,255,255,0.1)',
+            fontSize: '0.7rem', 
+            fontWeight: 800,
+            color: tokens.textPrimary
+          }}
+        >
+          {task.assigneeId ? task.assigneeId.substring(0, 2).toUpperCase() : '?'}
+        </Avatar>
+      </Box>
+
+      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+        {task.status === 'todo' && (
+          <Button
+            fullWidth
+            size="small"
+            variant="contained"
+            startIcon={<PlayArrowRounded />}
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onStart?.(task.taskId);
+            }}
+            sx={{ 
+              borderRadius: '12px',
+              bgcolor: tokens.successMain,
+              '&:hover': { bgcolor: tokens.successMain, opacity: 0.9 }
+            }}
+          >
+            Start
+          </Button>
+        )}
+        {task.status === 'in-progress' && (
+          <Button
+            fullWidth
+            size="small"
+            variant="contained"
+            startIcon={<SendRounded />}
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubmit?.(task.taskId);
+            }}
+            sx={{ 
+              borderRadius: '12px',
+              bgcolor: tokens.secondaryMain,
+              '&:hover': { bgcolor: tokens.secondaryMain, opacity: 0.9 }
+            }}
+          >
+            Submit
+          </Button>
+        )}
+      </Stack>
+    </Card>
+  );
+};
+
+interface TaskColumnProps {
+  id: string;
+  title: string;
+  icon: React.ReactNode;
+  tasks: Task[];
+  role: 'manager' | 'employee';
+  onAddTask?: (status: Task['status']) => void;
+  onTaskClick?: (task: Task) => void;
+  onStartTask: (taskId: string) => void;
+  onSubmitTask: (taskId: string) => void;
+}
+
+const TaskColumn: React.FC<TaskColumnProps> = ({ 
+  id, title, icon, tasks, role, onAddTask, onTaskClick, onStartTask, onSubmitTask 
+}) => {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  return (
+    <Box
+      ref={setNodeRef}
+      sx={{
+        bgcolor: isOver ? 'rgba(96, 165, 250, 0.08)' : 'rgba(13, 17, 26, 0.4)',
+        borderRadius: '32px',
+        p: 3,
+        minHeight: '600px',
+        border: '2px solid',
+        borderColor: isOver ? tokens.secondaryMain : 'rgba(148, 163, 184, 0.1)',
+        display: 'flex',
+        flexDirection: 'column',
+        transition: 'all 0.2s ease',
+        position: 'relative',
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ 
+            width: 32, 
+            height: 32, 
+            borderRadius: '10px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            bgcolor: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid rgba(255, 255, 255, 0.05)'
+          }}>
+            {icon}
+          </Box>
+          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 700, color: 'text.primary' }}>
+            {title}
+          </Typography>
+        </Box>
+        <IconButton 
+          size="small" 
+          onClick={() => onAddTask?.(id as Task['status'])}
+          sx={{ 
+            bgcolor: 'rgba(255, 255, 255, 0.05)', 
+            borderRadius: '8px',
+            '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.1)' }
+          }}
+        >
+          <AddRounded fontSize="small" />
+        </IconButton>
+      </Box>
+
+      <SortableContext 
+        id={id}
+        items={tasks.map(t => t.taskId)}
+        strategy={verticalListSortingStrategy}
+      >
+        <Stack spacing={2} sx={{ flexGrow: 1 }}>
+          {tasks.length > 0 ? (
+            tasks.map((task: Task) => (
+              <SortableTaskCard 
+                key={task.taskId} 
+                task={task} 
+                role={role}
+                onClick={() => onTaskClick?.(task)}
+                onStart={onStartTask}
+                onSubmit={onSubmitTask}
+              />
+            ))
+          ) : (
+            <Box 
+              sx={{ 
+                flexGrow: 1, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                border: '2px dashed rgba(148, 163, 184, 0.1)',
+                borderRadius: '24px',
+                m: 0.5,
+                bgcolor: isOver ? 'rgba(255, 255, 255, 0.02)' : 'transparent'
+              }}
+            >
+              <Typography sx={{ color: 'text.disabled', fontSize: '0.875rem', fontStyle: 'italic' }}>
+                Drop tasks here
+              </Typography>
+            </Box>
+          )}
+        </Stack>
+      </SortableContext>
+    </Box>
+  );
+};
+
 export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, onTaskClick, onAddTask }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [draggedOverTaskId, setDraggedOverTaskId] = useState<string | null>(null);
-  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
-  const [activeDropCol, setActiveDropCol] = useState<string | null>(null);
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const startStatusRef = useRef<Task['status'] | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const fetchTasks = async () => {
     try {
@@ -48,87 +354,125 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
 
   useEffect(() => { fetchTasks(); }, [teamId, role, refreshKey]);
 
-  const handleDragStart = (e: React.DragEvent, taskId: string) => {
-    e.dataTransfer.setData('taskId', taskId);
-    setDraggedTaskId(taskId);
-  };
-
-  const handleDragOverColumn = (e: React.DragEvent, colId: string) => {
-    e.preventDefault();
-    setActiveDropCol(colId);
-  };
-
-  const handleDragLeaveColumn = () => {
-    setActiveDropCol(null);
-  };
-
-  const handleDragOverTask = (e: React.DragEvent, taskId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDraggedOverTaskId(taskId);
-  };
-
-  const handleDrop = async (e: React.DragEvent, newColId: 'todo' | 'in-progress' | 'in-review' | 'done') => {
-    e.preventDefault();
-    const taskId = e.dataTransfer.getData('taskId');
-    setDraggedTaskId(null);
-    setDraggedOverTaskId(null);
-    setActiveDropCol(null);
-
-    if (!taskId) return;
-    const taskIndex = tasks.findIndex(t => t.taskId === taskId);
-    if (taskIndex === -1) return;
-    const task = tasks[taskIndex];
-
-    let targetStatus: Task['status'] = newColId;
-    let newTasks = [...tasks];
-
-    // Handle reordering within column or moving to a specific position
-    if (draggedOverTaskId) {
-      const overIndex = tasks.findIndex(t => t.taskId === draggedOverTaskId);
-      if (overIndex !== -1) {
-        newTasks.splice(taskIndex, 1);
-        newTasks.splice(overIndex, 0, { ...task });
-      }
-    } else {
-      newTasks.splice(taskIndex, 1);
-      newTasks.push({ ...task });
-    }
-
-    // Workflow logic for status transition
+  const handleStartTask = async (taskId: string) => {
     try {
-      if (task.status === 'todo' && newColId === 'in-progress') {
-        targetStatus = 'in-progress';
-        await api.tasks.start(taskId);
-      } else if (task.status === 'in-progress' && newColId === 'in-review') {
-        targetStatus = 'in-review';
-        await api.tasks.submit(taskId);
-      } else if (task.status === 'in-review' && newColId === 'done' && role === 'manager') {
-        targetStatus = 'done';
-        await api.tasks.approve(taskId);
-      } else if (task.status === 'in-review' && newColId === 'in-progress' && role === 'manager') {
-        targetStatus = 'in-progress';
-        await api.tasks.reject(taskId);
-      } else {
-        targetStatus = newColId;
-        if (task.status !== newColId) {
-          await api.tasks.update(taskId, { status: newColId });
-        }
-      }
-      
-      setTasks(newTasks.map(t => t.taskId === taskId ? { ...t, status: targetStatus } : t));
+      await api.tasks.start(taskId);
+      setTasks(prev => prev.map(t => t.taskId === taskId ? { ...t, status: 'in-progress' } : t));
     } catch (error) {
-      console.error('Failed to update status', error);
+      console.error('Failed to start task', error);
       fetchTasks();
     }
   };
 
-  // Map functional statuses to visual columns
+  const handleSubmitTask = async (taskId: string) => {
+    try {
+      await api.tasks.submit(taskId);
+      setTasks(prev => prev.map(t => t.taskId === taskId ? { ...t, status: 'in-review' } : t));
+    } catch (error) {
+      console.error('Failed to submit task', error);
+      fetchTasks();
+    }
+  };
+
+  const findContainer = (id: string) => {
+    if (['todo', 'in-progress', 'in-review', 'done'].includes(id)) {
+      return id;
+    }
+    const task = tasks.find(t => t.taskId === id);
+    return task ? task.status : null;
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const task = tasks.find(t => t.taskId === active.id);
+    if (task) {
+      setActiveTask(task);
+      startStatusRef.current = task.status;
+    }
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    const activeContainer = findContainer(activeId);
+    const overContainer = findContainer(overId);
+
+    if (!activeContainer || !overContainer || activeContainer === overContainer) {
+      return;
+    }
+
+    setTasks((prev) => {
+      const activeIndex = prev.findIndex((t) => t.taskId === activeId);
+      const overIndex = prev.findIndex((t) => t.taskId === overId);
+
+      let newIndex;
+      if (['todo', 'in-progress', 'in-review', 'done'].includes(overId)) {
+        newIndex = prev.length;
+      } else {
+        newIndex = overIndex >= 0 ? overIndex : prev.length;
+      }
+
+      const updatedTask = { ...prev[activeIndex], status: overContainer as Task['status'] };
+      const newTasks = [...prev];
+      newTasks.splice(activeIndex, 1);
+      newTasks.splice(newIndex, 0, updatedTask);
+      return newTasks;
+    });
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveTask(null);
+
+    if (!over) {
+      // Revert if dropped outside
+      if (startStatusRef.current) fetchTasks();
+      return;
+    }
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    const overContainer = findContainer(overId);
+    const initialStatus = startStatusRef.current;
+
+    if (initialStatus && overContainer && initialStatus !== overContainer) {
+      // Sync with API
+      try {
+        if (initialStatus === 'todo' && overContainer === 'in-progress') {
+          await api.tasks.start(activeId);
+        } else if (initialStatus === 'in-progress' && overContainer === 'in-review') {
+          await api.tasks.submit(activeId);
+        } else if (initialStatus === 'in-review' && overContainer === 'done' && role === 'manager') {
+          await api.tasks.approve(activeId);
+        } else if (initialStatus === 'in-review' && overContainer === 'in-progress' && role === 'manager') {
+          await api.tasks.reject(activeId);
+        } else {
+          await api.tasks.update(activeId, { status: overContainer });
+        }
+      } catch (error) {
+        console.error('Failed to sync status', error);
+        fetchTasks();
+      }
+    } else if (active.id !== over.id) {
+      // Reordering within same column
+      const oldIndex = tasks.findIndex((t) => t.taskId === activeId);
+      const newIndex = tasks.findIndex((t) => t.taskId === overId);
+      setTasks((items) => arrayMove(items, oldIndex, newIndex));
+    }
+    
+    startStatusRef.current = null;
+  };
+
   const columns = [
-    { id: 'todo' as const, title: 'To Do', icon: <RadioButtonUncheckedRounded sx={{ color: tokens.textSecondary }} />, statuses: ['todo'] },
-    { id: 'in-progress' as const, title: 'In Progress', icon: <AccessTimeRounded sx={{ color: tokens.warningMain }} />, statuses: ['in-progress'] },
-    { id: 'in-review' as const, title: 'In Review', icon: <TuneRounded sx={{ color: tokens.secondaryMain }} />, statuses: ['in-review'] },
-    { id: 'done' as const, title: 'Done', icon: <CheckCircleRounded sx={{ color: tokens.successMain }} />, statuses: ['done'] },
+    { id: 'todo' as const, title: 'To Do', icon: <RadioButtonUncheckedRounded sx={{ color: tokens.textSecondary }} /> },
+    { id: 'in-progress' as const, title: 'In Progress', icon: <AccessTimeRounded sx={{ color: tokens.warningMain }} /> },
+    { id: 'in-review' as const, title: 'In Review', icon: <TuneRounded sx={{ color: tokens.secondaryMain }} /> },
+    { id: 'done' as const, title: 'Done', icon: <CheckCircleRounded sx={{ color: tokens.successMain }} /> },
   ];
 
   if (loading) {
@@ -156,199 +500,46 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
   }
 
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(4, 1fr)' }, gap: 3 }}>
-      {columns.map(col => {
-        const columnTasks = tasks.filter((t: Task) => col.statuses.includes(t.status));
-        
-        return (
-          <Box
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(4, 1fr)' }, gap: 3 }}>
+        {columns.map(col => (
+          <TaskColumn
             key={col.id}
-            onDragOver={(e) => handleDragOverColumn(e, col.id)}
-            onDragLeave={handleDragLeaveColumn}
-            onDrop={(e) => handleDrop(e, col.id)}
-            sx={{
-              bgcolor: activeDropCol === col.id ? 'rgba(96, 165, 250, 0.08)' : 'rgba(13, 17, 26, 0.4)',
-              borderRadius: '32px',
-              p: 3,
-              minHeight: '600px',
-              border: '2px solid',
-              borderColor: activeDropCol === col.id ? tokens.secondaryMain : 'rgba(148, 163, 184, 0.1)',
-              display: 'flex',
-              flexDirection: 'column',
-              transition: 'all 0.2s ease',
-              position: 'relative',
-              '&:hover': {
-                bgcolor: activeDropCol === col.id ? 'rgba(96, 165, 250, 0.1)' : 'rgba(13, 17, 26, 0.6)',
-              }
-            }}
-          >
-            {/* Column Header */}
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Box sx={{ 
-                  width: 32, 
-                  height: 32, 
-                  borderRadius: '10px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  bgcolor: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(255, 255, 255, 0.05)'
-                }}>
-                  {col.icon}
-                </Box>
-                <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 700, color: 'text.primary' }}>
-                  {col.title}
-                </Typography>
-              </Box>
-              <IconButton 
-                size="small" 
-                onClick={() => onAddTask?.(col.id)}
-                sx={{ 
-                  bgcolor: 'rgba(255, 255, 255, 0.05)', 
-                  borderRadius: '8px',
-                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.1)' }
-                }}
-              >
-                <AddRounded fontSize="small" />
-              </IconButton>
-            </Box>
-
-            <Stack spacing={2} sx={{ flexGrow: 1 }}>
-              {columnTasks.length > 0 ? (
-                columnTasks.map((task: Task) => {
-                  const priorityColor = priorityColorMap[task.priority] || tokens.textSecondary;
-                  return (
-                    <Card
-                      key={task.taskId}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, task.taskId)}
-                      onDragOver={(e) => handleDragOverTask(e, task.taskId)}
-                      onDragLeave={() => setDraggedOverTaskId(null)}
-                      onClick={() => onTaskClick?.(task)}
-                      sx={{
-                        p: 2.5,
-                        cursor: 'grab',
-                        bgcolor: draggedTaskId === task.taskId ? 'transparent' : 'rgba(18, 22, 32, 0.8)',
-                        borderRadius: '24px',
-                        border: '1px solid',
-                        borderColor: draggedOverTaskId === task.taskId ? tokens.secondaryMain : 'rgba(148, 163, 184, 0.1)',
-                        opacity: draggedTaskId === task.taskId ? 0.4 : 1,
-                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                        position: 'relative',
-                        '&:hover': { 
-                          transform: 'translateY(-4px) scale(1.01)',
-                          boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-                          borderColor: tokens.secondaryMain,
-                          bgcolor: 'rgba(22, 28, 40, 1)'
-                        },
-                        '&:active': { cursor: 'grabbing' },
-                        // Visual indicator for reordering
-                        '&::before': draggedOverTaskId === task.taskId ? {
-                          content: '""',
-                          position: 'absolute',
-                          top: -8,
-                          left: 0,
-                          right: 0,
-                          height: 4,
-                          bgcolor: tokens.secondaryMain,
-                          borderRadius: '2px',
-                          boxShadow: `0 0 10px ${tokens.secondaryMain}`,
-                        } : {},
-                      }}
-                    >
-                      {task.imageKey && (
-                        <Box sx={{ width: '100%', height: 140, borderRadius: '16px', mb: 2, overflow: 'hidden', border: '1px solid', borderColor: 'rgba(255,255,255,0.05)' }}>
-                          <S3Image 
-                            imageKey={task.imageKey.replace('uploads/', 'resized/')} 
-                            bucket="mini-jira-resized"
-                            sx={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                          />
-                        </Box>
-                      )}
-                      <Typography sx={{ fontWeight: 600, mb: 1.5, fontSize: '0.95rem', color: 'text.primary', lineHeight: 1.4 }}>
-                        {task.title}
-                      </Typography>
-
-                      {task.deadline && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 2, color: 'text.secondary' }}>
-                          <AccessTimeRounded sx={{ fontSize: 14 }} />
-                          <Typography sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
-                            {new Date(task.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </Typography>
-                        </Box>
-                      )}
-                      
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                          <Chip
-                            label={task.priority.toUpperCase()}
-                            size="small"
-                            sx={{
-                              height: 22,
-                              fontSize: '0.65rem',
-                              fontWeight: 800,
-                              color: priorityColor,
-                              bgcolor: `${priorityColor}1A`,
-                              border: `1px solid ${priorityColor}33`,
-                              borderRadius: '6px',
-                              '& .MuiChip-label': { px: 1 },
-                            }}
-                          />
-                          {task.status === 'in-review' && role === 'manager' && (
-                            <Chip
-                              label="READY TO APPROVE"
-                              size="small"
-                              sx={{
-                                height: 22,
-                                fontSize: '0.65rem',
-                                fontWeight: 800,
-                                color: tokens.secondaryMain,
-                                bgcolor: `${tokens.secondaryMain}1A`,
-                                border: `1px solid ${tokens.secondaryMain}33`,
-                                borderRadius: '6px',
-                              }}
-                            />
-                          )}
-                        </Stack>
-                        <Avatar 
-                          sx={{ 
-                            width: 28, 
-                            height: 28, 
-                            bgcolor: tokens.bgElevated, 
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            fontSize: '0.7rem', 
-                            fontWeight: 800,
-                            color: tokens.textPrimary
-                          }}
-                        >
-                          {task.assigneeId ? task.assigneeId.substring(0, 2).toUpperCase() : '?'}
-                        </Avatar>
-                      </Box>
-                    </Card>
-                  );
-                })
-              ) : (
-                <Box 
-                  sx={{ 
-                    flexGrow: 1, 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    border: '2px dashed rgba(148, 163, 184, 0.1)',
-                    borderRadius: '24px',
-                    m: 0.5
-                  }}
-                >
-                  <Typography sx={{ color: 'text.disabled', fontSize: '0.875rem', fontStyle: 'italic' }}>
-                    Drop tasks here
-                  </Typography>
-                </Box>
-              )}
-            </Stack>
-          </Box>
-        );
-      })}
-    </Box>
+            id={col.id}
+            title={col.title}
+            icon={col.icon}
+            tasks={tasks.filter(t => t.status === col.id)}
+            role={role}
+            onAddTask={onAddTask}
+            onTaskClick={onTaskClick}
+            onStartTask={handleStartTask}
+            onSubmitTask={handleSubmitTask}
+          />
+        ))}
+      </Box>
+      <DragOverlay dropAnimation={{
+        sideEffects: defaultDropAnimationSideEffects({
+          styles: {
+            active: {
+              opacity: '0.5',
+            },
+          },
+        }),
+      }}>
+        {activeTask ? (
+          <SortableTaskCard 
+            task={activeTask} 
+            role={role}
+            onClick={() => {}} 
+          />
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 };

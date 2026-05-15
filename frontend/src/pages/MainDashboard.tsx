@@ -101,6 +101,8 @@ export const MainDashboard: React.FC = () => {
         teams={teams}
         projects={projects}
         loading={isDataLoading}
+        role={user?.role}
+        onDelete={() => navigate(0)} // Refresh current page
       />
 
       <TaskModal

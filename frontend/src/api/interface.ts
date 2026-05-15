@@ -14,6 +14,15 @@ export interface Task {
     imageKey?: string;
 }
 
+export interface ActivityLog {
+    taskId: string;
+    timestamp: string;
+    changedBy: string;
+    userName?: string;
+    oldStatus: TaskStatus;
+    newStatus: TaskStatus;
+}
+
 export interface Project {
     projectId: string;
     name: string;

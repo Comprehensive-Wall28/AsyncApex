@@ -439,4 +439,38 @@ export class TasksService {
       }),
     );
   }
+
+  async getActivityLogs(taskId: string, user: RequestUser) {
+    // Verify task exists and user has access
+    await this.findOne(taskId, user);
+
+    const result = await dynamoDB.send(
+      new QueryCommand({
+        TableName: TABLES.ActivityLog,
+        KeyConditionExpression: 'taskId = :taskId',
+        ExpressionAttributeValues: { ':taskId': taskId },
+        ScanIndexForward: false, // Return newest first
+      }),
+    );
+
+    // Fetch user details for each log entry to provide names
+    const logs = result.Items || [];
+    const logsWithUserInfo = await Promise.all(
+      logs.map(async (log) => {
+        try {
+          const userResult = await dynamoDB.send(
+            new GetCommand({ TableName: TABLES.Users, Key: { userId: log.changedBy } }),
+          );
+          return {
+            ...log,
+            userName: userResult.Item ? userResult.Item['name'] : 'Unknown User',
+          };
+        } catch (err) {
+          return { ...log, userName: 'Unknown User' };
+        }
+      }),
+    );
+
+    return logsWithUserInfo;
+  }
 }

@@ -45,6 +45,7 @@ export const api = {
     submit: (id: string) => client.post(`/tasks/${id}/submit`),
     approve: (id: string) => client.post(`/tasks/${id}/approve`),
     reject: (id: string) => client.post(`/tasks/${id}/reject`),
+    getLogs: (id: string) => client.get(`/tasks/${id}/logs`),
   },
 
   projects: {

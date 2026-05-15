@@ -90,9 +90,10 @@ async function bootstrap() {
   });
 
   const port = process.env.PORT || 3000;
-  await app.listen(port);
-  console.log(`AsyncApex API  → http://localhost:${port}/api/v1`);
-  console.log(`Swagger UI     → http://localhost:${port}/docs`);
+  const host = process.env.BACKEND_HOST || 'localhost';
+  await app.listen(port, host);
+  console.log(`AsyncApex API  → http://${host}:${port}/api/v1`);
+  console.log(`Swagger UI     → http://${host}:${port}/docs`);
 }
 
 bootstrap();

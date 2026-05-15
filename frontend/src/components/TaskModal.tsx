@@ -11,7 +11,8 @@ import {
   Typography,
   Stack,
   CircularProgress,
-  IconButton
+  IconButton,
+  Skeleton
 } from '@mui/material';
 import { CloseRounded, CloudUploadRounded, DeleteRounded } from '@mui/icons-material';
 import api from '../api';
@@ -204,7 +205,19 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
   };
 
   return (
-    <Dialog open={open} onClose={!loading ? onClose : undefined} maxWidth="sm" fullWidth sx={{ '& .MuiDialog-paper': { bgcolor: 'background.default', borderRadius: 2 } }}>
+    <Dialog 
+      open={open} 
+      onClose={!loading ? onClose : undefined} 
+      maxWidth="lg" 
+      fullWidth 
+      sx={{ 
+        '& .MuiDialog-paper': { 
+          bgcolor: 'background.default', 
+          borderRadius: 3,
+          boxShadow: '0 24px 48px rgba(0,0,0,0.5)'
+        } 
+      }}
+    >
       <DialogTitle component="div" sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           {task ? 'Edit Task' : 'Create New Task'}
@@ -217,9 +230,20 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
       <form onSubmit={handleSubmit}>
         <DialogContent dividers sx={{ borderColor: 'divider', p: 3 }}>
           {dataLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-              <CircularProgress />
-            </Box>
+            <Stack spacing={3}>
+              <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />
+              <Skeleton variant="rectangular" height={100} sx={{ borderRadius: 1 }} />
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />
+                <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />
+              </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />
+                <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />
+              </Box>
+              <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />
+              <Skeleton variant="rectangular" height={150} sx={{ borderRadius: 2 }} />
+            </Stack>
           ) : (
             <Stack spacing={3}>
               <TextField

@@ -1,20 +1,49 @@
 import React, { useState } from 'react';
 import { Box, Typography, Button, Container, Stack } from '@mui/material';
-import { AddRounded, AssessmentRounded, CheckCircleRounded, TrendingUpRounded } from '@mui/icons-material';
-import { StatCard } from '../components/StatCard';
+import { AddRounded, AssessmentRounded } from '@mui/icons-material';
+
 import { TaskBoard } from '../components/TaskBoard';
 import { TaskModal } from '../components/TaskModal';
+import { TaskViewModal } from '../components/TaskViewModal';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import type { Task } from '../api/interface';
+import api from '../api';
+import type { Task, User, Team, Project } from '../api/interface';
 import { chartBoxSx } from '../styles/style';
 
 export const MainDashboard: React.FC = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isDataLoading, setIsDataLoading] = useState(true);
   const [selectedTask, setSelectedTask] = useState<Task | undefined>(undefined);
   const [boardRefreshKey, setBoardRefreshKey] = useState(0);
+
+  const [users, setUsers] = useState<User[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsDataLoading(true);
+        const [u, t, p] = await Promise.all([
+          api.users.getAll(),
+          api.teams.getAll(),
+          api.projects.getAll()
+        ]);
+        setUsers(u as any);
+        setTeams(t as any);
+        setProjects(p as any);
+      } catch (err) {
+        console.error('Failed to fetch dashboard data', err);
+      } finally {
+        setIsDataLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   if (loading) return null;
 
@@ -57,7 +86,7 @@ export const MainDashboard: React.FC = () => {
           refreshKey={boardRefreshKey}
           onTaskClick={(task) => {
             setSelectedTask(task);
-            setIsTaskModalOpen(true);
+            setIsViewModalOpen(true);
           }}
         />
       </Box>
@@ -75,6 +104,20 @@ export const MainDashboard: React.FC = () => {
           </Box>
         </Box>
       )}
+
+      <TaskViewModal
+        open={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        onEdit={() => {
+          setIsViewModalOpen(false);
+          setIsTaskModalOpen(true);
+        }}
+        task={selectedTask}
+        users={users}
+        teams={teams}
+        projects={projects}
+        loading={isDataLoading}
+      />
 
       <TaskModal
         open={isTaskModalOpen}

@@ -1,4 +1,5 @@
 import { client } from './client';
+import type { StatusStats } from './interface';
 
 /**
  * API services organized by resource.
@@ -94,7 +95,7 @@ export const api = {
   },
 
   status: {
-    check: () => client.get('/status'),
+    check: () => client.get<StatusStats>('/status'),
   },
 
   s3: {

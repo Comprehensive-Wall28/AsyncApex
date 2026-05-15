@@ -473,4 +473,38 @@ export class TasksService {
 
     return logsWithUserInfo;
   }
+
+  async getGlobalStats() {
+    const result = await dynamoDB.send(new ScanCommand({ TableName: TABLES.Tasks }));
+    const tasks = result.Items || [];
+
+    const totalTasks = tasks.length;
+    const closedTasks = tasks.filter((t) => t['status'] === 'done').length;
+
+    // Group tasks by team for time-to-close metrics
+    const teamStats: Record<string, { totalClosed: number; totalDuration: number }> = {};
+
+    tasks.forEach((task) => {
+      if (task['status'] === 'done' && task['createdAt'] && task['updatedAt']) {
+        const start = new Date(task['createdAt']).getTime();
+        const end = new Date(task['updatedAt']).getTime();
+        const durationHours = (end - start) / (1000 * 60 * 60);
+
+        if (durationHours > 0) {
+          const teamId = task['teamId'];
+          if (!teamStats[teamId]) {
+            teamStats[teamId] = { totalClosed: 0, totalDuration: 0 };
+          }
+          teamStats[teamId].totalClosed += 1;
+          teamStats[teamId].totalDuration += durationHours;
+        }
+      }
+    });
+
+    return {
+      totalTasks,
+      closedTasks,
+      teamStats,
+    };
+  }
 }

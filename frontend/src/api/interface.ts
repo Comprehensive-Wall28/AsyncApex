@@ -59,3 +59,18 @@ export interface Comment {
     content: string;
     createdAt: string;
 }
+
+export interface TeamMetric {
+    teamName: string;
+    avgTimeToClose: number;
+}
+
+export interface StatusStats {
+    status: string;
+    timestamp: string;
+    analytics: {
+        totalTasks: number;
+        closedTasks: number;
+        teamMetrics: TeamMetric[];
+    };
+}

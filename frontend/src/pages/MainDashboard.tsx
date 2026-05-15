@@ -46,17 +46,11 @@ export const MainDashboard: React.FC = () => {
         )}
       </Box>
 
-      {/* Quick Stats */}
-      {isManager && (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3, mb: 6 }}>
-          <StatCard title="Active Tasks" value="124" icon={<AssessmentRounded />} trend="+12% from last week" />
-          <StatCard title="Team Progress" value="68%" icon={<TrendingUpRounded />} trend="On track" trendColor="secondary.main" />
-          <StatCard title="Approaching Deadlines" value="12" icon={<CheckCircleRounded />} trend="-3 this sprint" trendColor="error.main" />
-        </Box>
-      )}
-
       {/* Nexus Kanban Board */}
       <Box sx={{ mb: 6 }}>
+        <Typography variant="h4" sx={{ mb: 4, fontWeight: 800, letterSpacing: '-0.02em' }}>
+          Sprint Pipeline
+        </Typography>
         <TaskBoard
           teamId={user?.teamId}
           role={user?.role || 'employee'}

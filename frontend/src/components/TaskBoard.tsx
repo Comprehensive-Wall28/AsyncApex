@@ -81,20 +81,35 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, col.id)}
           sx={{
-            bgcolor: 'background.paper',
-            borderRadius: '8px',
-            p: 2,
-            minHeight: 500,
+            bgcolor: 'rgba(255, 255, 255, 0.03)',
+            borderRadius: '16px',
+            p: 2.5,
+            minHeight: '70vh',
             border: '1px solid',
-            borderColor: 'divider',
+            borderColor: 'rgba(255, 255, 255, 0.08)',
+            transition: 'background-color 0.3s ease',
+            '&:hover': {
+              bgcolor: 'rgba(255, 255, 255, 0.05)',
+            }
           }}
         >
-          <Typography variant="h6" sx={{ mb: 2, px: 0.5, fontSize: '0.9rem', fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {col.title}{' '}
-            <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.6 }}>
-              ({tasks.filter(t => t.status === col.id).length})
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, px: 0.5 }}>
+            <Typography variant="h6" sx={{ fontSize: '0.95rem', fontWeight: 800, color: 'text.primary', letterSpacing: '0.02em' }}>
+              {col.title}
             </Typography>
-          </Typography>
+            <Chip 
+              label={tasks.filter(t => t.status === col.id).length} 
+              size="small" 
+              sx={{ 
+                height: 20, 
+                fontSize: '0.7rem', 
+                fontWeight: 700, 
+                bgcolor: 'rgba(255,255,255,0.1)', 
+                color: 'text.secondary',
+                borderRadius: '6px'
+              }} 
+            />
+          </Box>
 
           <Stack spacing={1.5}>
             {tasks.filter(t => t.status === col.id).map(task => {
@@ -106,10 +121,20 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
                   onDragStart={(e) => handleDragStart(e, task.taskId)}
                   onClick={() => onTaskClick?.(task)}
                   sx={{
-                    p: 1.5,
+                    p: 2,
                     cursor: 'grab',
-                    transition: 'box-shadow 0.2s ease',
-                    '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.3)' },
+                    bgcolor: 'background.default',
+                    borderRadius: '12px',
+                    border: '1px solid',
+                    borderColor: 'rgba(255, 255, 255, 0.05)',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    '&:hover': { 
+                      transform: 'translateY(-4px)',
+                      boxShadow: '0 12px 24px rgba(0,0,0,0.4)',
+                      borderColor: 'primary.main',
+                      bgcolor: 'rgba(255, 255, 255, 0.05)'
+                    },
+                    '&:active': { cursor: 'grabbing' }
                   }}
                 >
                   {task.imageKey && (

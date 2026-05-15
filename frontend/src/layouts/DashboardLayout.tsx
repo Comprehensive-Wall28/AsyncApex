@@ -6,7 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 
 export const DashboardLayout: React.FC = () => {
   const { user, loading } = useAuth();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
   if (loading) return null;
 

@@ -6,8 +6,6 @@ import {
   MenuOpenRounded,
   MenuRounded,
   DashboardRounded,
-  AssignmentRounded,
-  GroupRounded,
   SettingsRounded,
   ViewColumnRounded,
 } from '@mui/icons-material';
@@ -41,9 +39,7 @@ export const CollapsibleSidebar: React.FC<SidebarProps> = ({ userName, collapsed
 
   const navItems = [
     { label: 'Dashboard', icon: <DashboardRounded />, path: '/dashboard' },
-    { label: 'Projects', icon: <AssignmentRounded />, path: '/projects' },
     { label: 'Tasks', icon: <ViewColumnRounded />, path: '/tasks' },
-    { label: 'Teams', icon: <GroupRounded />, path: '/teams' },
   ];
 
   if (user?.role === 'manager') {

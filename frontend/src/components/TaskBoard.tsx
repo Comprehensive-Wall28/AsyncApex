@@ -5,6 +5,7 @@ import {
   RadioButtonUncheckedRounded, 
   AccessTimeRounded, 
   CheckCircleRounded,
+  TuneRounded
 } from '@mui/icons-material';
 import api from '../api';
 import type { Task } from '../api/interface';
@@ -67,7 +68,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
     setDraggedOverTaskId(taskId);
   };
 
-  const handleDrop = async (e: React.DragEvent, newColId: 'todo' | 'in-progress' | 'done') => {
+  const handleDrop = async (e: React.DragEvent, newColId: 'todo' | 'in-progress' | 'in-review' | 'done') => {
     e.preventDefault();
     const taskId = e.dataTransfer.getData('taskId');
     setDraggedTaskId(null);
@@ -87,11 +88,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
       const overIndex = tasks.findIndex(t => t.taskId === draggedOverTaskId);
       if (overIndex !== -1) {
         newTasks.splice(taskIndex, 1);
-        // If it's a different column, we'll update the status later
         newTasks.splice(overIndex, 0, { ...task });
       }
     } else {
-      // Just moving to the end of the column
       newTasks.splice(taskIndex, 1);
       newTasks.push({ ...task });
     }
@@ -101,7 +100,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
       if (task.status === 'todo' && newColId === 'in-progress') {
         targetStatus = 'in-progress';
         await api.tasks.start(taskId);
-      } else if (task.status === 'in-progress' && newColId === 'done') {
+      } else if (task.status === 'in-progress' && newColId === 'in-review') {
         targetStatus = 'in-review';
         await api.tasks.submit(taskId);
       } else if (task.status === 'in-review' && newColId === 'done' && role === 'manager') {
@@ -110,21 +109,17 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
       } else if (task.status === 'in-review' && newColId === 'in-progress' && role === 'manager') {
         targetStatus = 'in-progress';
         await api.tasks.reject(taskId);
-      } else if (task.status === 'in-review' && newColId === 'done' && role === 'employee') {
-        // Employee dropped it into done again, already in review, no-op or keep in review
-        targetStatus = 'in-review';
       } else {
-        targetStatus = newColId as Task['status'];
+        targetStatus = newColId;
         if (task.status !== newColId) {
-          await api.tasks.update(taskId, { status: newColId as Task['status'] });
+          await api.tasks.update(taskId, { status: newColId });
         }
       }
       
-      // Final state update with correct status
       setTasks(newTasks.map(t => t.taskId === taskId ? { ...t, status: targetStatus } : t));
     } catch (error) {
       console.error('Failed to update status', error);
-      fetchTasks(); // Revert on failure
+      fetchTasks();
     }
   };
 
@@ -132,13 +127,14 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
   const columns = [
     { id: 'todo' as const, title: 'To Do', icon: <RadioButtonUncheckedRounded sx={{ color: tokens.textSecondary }} />, statuses: ['todo'] },
     { id: 'in-progress' as const, title: 'In Progress', icon: <AccessTimeRounded sx={{ color: tokens.warningMain }} />, statuses: ['in-progress'] },
-    { id: 'done' as const, title: 'Done', icon: <CheckCircleRounded sx={{ color: tokens.successMain }} />, statuses: ['in-review', 'done'] },
+    { id: 'in-review' as const, title: 'In Review', icon: <TuneRounded sx={{ color: tokens.secondaryMain }} />, statuses: ['in-review'] },
+    { id: 'done' as const, title: 'Done', icon: <CheckCircleRounded sx={{ color: tokens.successMain }} />, statuses: ['done'] },
   ];
 
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 10 }}><CircularProgress /></Box>;
 
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(4, 1fr)' }, gap: 3 }}>
       {columns.map(col => {
         const columnTasks = tasks.filter((t: Task) => col.statuses.includes(t.status));
         
@@ -267,9 +263,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
                               '& .MuiChip-label': { px: 1 },
                             }}
                           />
-                          {task.status === 'in-review' && (
+                          {task.status === 'in-review' && role === 'manager' && (
                             <Chip
-                              label="REVIEW"
+                              label="READY TO APPROVE"
                               size="small"
                               sx={{
                                 height: 22,

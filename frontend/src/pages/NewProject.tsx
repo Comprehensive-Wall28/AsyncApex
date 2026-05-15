@@ -20,7 +20,6 @@ export const NewProject: React.FC = () => {
     // Form state
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
-    const [budget, setBudget] = useState('');
     const [endDate, setEndDate] = useState('');
 
     const [submitting, setSubmitting] = useState(false);
@@ -41,8 +40,6 @@ export const NewProject: React.FC = () => {
             await api.projects.create({
                 name: name.trim(),
                 description: description.trim(),
-                budget: budget ? parseFloat(budget) : undefined,
-                endDate: endDate || undefined,
             });
             navigate('/projects');
         } catch (err) {
@@ -198,42 +195,6 @@ export const NewProject: React.FC = () => {
                         placeholder="Describe the scope, goals, and deliverables of this project..."
                         sx={inputSx}
                     />
-
-                    {/* Budget & End Date row */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 3 }}>
-                        <TextField
-                            fullWidth
-                            label="Budget"
-                            type="number"
-                            value={budget}
-                            onChange={(e) => setBudget(e.target.value)}
-                            placeholder="0.00"
-                            slotProps={{
-                                input: {
-                                    startAdornment: (
-                                        <AttachMoneyRounded sx={{ color: 'text.secondary', mr: 0.5, fontSize: 20 }} />
-                                    ),
-                                },
-                            }}
-                            sx={inputSx}
-                        />
-                        <TextField
-                            fullWidth
-                            label="End Date"
-                            type="date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            slotProps={{
-                                inputLabel: { shrink: true },
-                                input: {
-                                    startAdornment: (
-                                        <CalendarMonthRounded sx={{ color: 'text.secondary', mr: 0.5, fontSize: 20 }} />
-                                    ),
-                                },
-                            }}
-                            sx={inputSx}
-                        />
-                    </Box>
                 </Stack>
             </Box>
 

@@ -27,9 +27,6 @@ export interface Project {
     projectId: string;
     name: string;
     description: string;
-    status: TaskStatus; // we still need to discuss this with the backend team
-    deadline: Date; // we still need to discuss this with the backend team
-    budget: number; // we still need to discuss this with the backend team
     managerId: string;
     createdAt: Date;
     updatedAt: Date;

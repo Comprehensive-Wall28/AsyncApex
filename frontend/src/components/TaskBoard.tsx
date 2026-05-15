@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Card, Avatar, Chip, Stack, CircularProgress, IconButton } from '@mui/material';
+import { Box, Typography, Card, Avatar, Chip, Stack, CircularProgress, IconButton, Skeleton } from '@mui/material';
 import { 
   AddRounded, 
   RadioButtonUncheckedRounded, 
@@ -37,7 +37,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const data = await api.tasks.getAll({ teamId: role === 'manager' ? teamId : undefined });
+      const data = await api.tasks.getAll({ teamId: teamId });
       setTasks(data as any);
     } catch (err) {
       console.error('Failed to fetch tasks', err);
@@ -131,7 +131,29 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
     { id: 'done' as const, title: 'Done', icon: <CheckCircleRounded sx={{ color: tokens.successMain }} />, statuses: ['done'] },
   ];
 
-  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 10 }}><CircularProgress /></Box>;
+  if (loading) {
+    return (
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(4, 1fr)' }, gap: 3 }}>
+        {[1, 2, 3, 4].map((col) => (
+          <Box key={col} sx={{ bgcolor: 'rgba(13, 17, 26, 0.4)', borderRadius: '32px', p: 3, minHeight: '600px', border: '2px solid rgba(148, 163, 184, 0.1)' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+              <Skeleton variant="circular" width={32} height={32} sx={{ bgcolor: 'rgba(255,255,255,0.05)' }} />
+              <Skeleton variant="text" width={100} height={24} sx={{ bgcolor: 'rgba(255,255,255,0.05)' }} />
+            </Box>
+            <Stack spacing={2}>
+              {[1, 2, 3].map((card) => (
+                <Box key={card} sx={{ p: 2.5, bgcolor: 'rgba(18, 22, 32, 0.8)', borderRadius: '24px', border: '1px solid rgba(148, 163, 184, 0.1)' }}>
+                  <Skeleton variant="rectangular" width="100%" height={120} sx={{ borderRadius: '16px', mb: 2, bgcolor: 'rgba(255,255,255,0.05)' }} />
+                  <Skeleton variant="text" width="80%" height={20} sx={{ mb: 1, bgcolor: 'rgba(255,255,255,0.05)' }} />
+                  <Skeleton variant="text" width="40%" height={16} sx={{ bgcolor: 'rgba(255,255,255,0.05)' }} />
+                </Box>
+              ))}
+            </Stack>
+          </Box>
+        ))}
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(4, 1fr)' }, gap: 3 }}>
@@ -238,14 +260,24 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
                       {task.imageKey && (
                         <Box sx={{ width: '100%', height: 140, borderRadius: '16px', mb: 2, overflow: 'hidden', border: '1px solid', borderColor: 'rgba(255,255,255,0.05)' }}>
                           <S3Image 
-                            imageKey={task.imageKey} 
+                            imageKey={task.imageKey.replace('uploads/', 'resized/')} 
+                            bucket="mini-jira-resized"
                             sx={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                           />
                         </Box>
                       )}
-                      <Typography sx={{ fontWeight: 600, mb: 2, fontSize: '0.95rem', color: 'text.primary', lineHeight: 1.4 }}>
+                      <Typography sx={{ fontWeight: 600, mb: 1.5, fontSize: '0.95rem', color: 'text.primary', lineHeight: 1.4 }}>
                         {task.title}
                       </Typography>
+
+                      {task.deadline && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 2, color: 'text.secondary' }}>
+                          <AccessTimeRounded sx={{ fontSize: 14 }} />
+                          <Typography sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
+                            {new Date(task.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </Typography>
+                        </Box>
+                      )}
                       
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>

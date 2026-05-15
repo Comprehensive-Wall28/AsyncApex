@@ -12,8 +12,10 @@ import {
   AddRounded,
   SearchRounded,
   TuneRounded,
-  CheckCircleRounded
+  CheckCircleRounded,
+  FilterListRounded,
 } from '@mui/icons-material';
+import { MenuItem, Select, FormControl } from '@mui/material';
 
 import { TaskBoard } from '../components/TaskBoard';
 import { TaskModal } from '../components/TaskModal';
@@ -29,6 +31,7 @@ export const Tasks: React.FC = () => {
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [selectedTask, setSelectedTask] = useState<Task | undefined>(undefined);
   const [boardRefreshKey, setBoardRefreshKey] = useState(0);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | undefined>(undefined);
 
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -122,6 +125,37 @@ export const Tasks: React.FC = () => {
             }}
           />
 
+          {isManager && (
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <Select
+                value={selectedTeamId || 'all'}
+                onChange={(e) => setSelectedTeamId(e.target.value === 'all' ? undefined : e.target.value)}
+                displayEmpty
+                startAdornment={<FilterListRounded sx={{ color: 'text.secondary', mr: 1, fontSize: 18 }} />}
+                sx={{
+                  borderRadius: '12px',
+                  bgcolor: 'rgba(255, 255, 255, 0.03)',
+                  color: 'text.primary',
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.1)' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.2)' },
+                  '& .MuiSelect-select': { py: 1, px: 2 },
+                }}
+                renderValue={(selected) => {
+                  if (selected === 'all') return 'All Teams';
+                  const team = teams.find(t => t.teamId === selected);
+                  return team ? team.name : 'Unknown Team';
+                }}
+              >
+                <MenuItem value="all">All Teams</MenuItem>
+                {teams.map((team) => (
+                  <MenuItem key={team.teamId} value={team.teamId}>
+                    {team.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
           <Button
             variant="outlined"
             startIcon={<TuneRounded />}
@@ -158,7 +192,7 @@ export const Tasks: React.FC = () => {
       {/* Kanban Board Container */}
       <Box>
         <TaskBoard
-          teamId={user?.teamId}
+          teamId={isManager ? selectedTeamId : user?.teamId}
           role={user?.role || 'employee'}
           refreshKey={boardRefreshKey}
           onTaskClick={(task) => {

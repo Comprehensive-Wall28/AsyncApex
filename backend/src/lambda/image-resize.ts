@@ -30,7 +30,7 @@ export const handler = async (event: S3Event): Promise<void> => {
       //   const resized = await sharp(imageBuffer).resize(800).jpeg({ quality: 80 }).toBuffer();
       const resized = imageBuffer;
 
-      const destKey = key.replace('attachments/', 'resized/');
+      const destKey = key.replace('attachments/', 'resized/').replace('uploads/', 'resized/');
       await s3Client.send(
         new PutObjectCommand({
           Bucket: BUCKETS.resized,

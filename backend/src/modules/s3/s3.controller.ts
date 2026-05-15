@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -63,8 +64,8 @@ export class S3Controller {
   })
   @ApiParam({ name: 'key', description: 'S3 object key, e.g. uploads/uuid-photo.jpg' })
   @ApiResponse({ status: 200, description: 'Presigned URL', schema: { example: { url: 'https://s3.amazonaws.com/...' } } })
-  getPresignedUrl(@Param('key') key: string) {
-    return this.s3Service.getPresignedUrl(key).then((url) => ({ url }));
+  getPresignedUrl(@Param('key') key: string, @Query('bucket') bucket?: string) {
+    return this.s3Service.getPresignedUrl(key, bucket).then((url) => ({ url }));
   }
 
   @Delete(':key(*)')

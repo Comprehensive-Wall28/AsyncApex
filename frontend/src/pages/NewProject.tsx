@@ -6,8 +6,6 @@ import {
 import {
     ArrowBackRounded,
     RocketLaunchRounded,
-    AttachMoneyRounded,
-    CalendarMonthRounded,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';

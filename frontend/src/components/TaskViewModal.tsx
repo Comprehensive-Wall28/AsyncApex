@@ -19,14 +19,14 @@ import {
   DialogActions,
   Zoom
 } from '@mui/material';
-import { 
-  CloseRounded, 
-  EditRounded, 
-  CalendarTodayRounded, 
-  PeopleAltRounded, 
-  FlagRounded, 
-  InfoRounded, 
-  HistoryRounded, 
+import {
+  CloseRounded,
+  EditRounded,
+  CalendarTodayRounded,
+  PeopleAltRounded,
+  FlagRounded,
+  InfoRounded,
+  HistoryRounded,
   DeleteRounded,
   SendRounded,
   DeleteOutlineRounded,
@@ -70,7 +70,7 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
   const [commentText, setCommentText] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [isImageFullOpen, setIsImageFullOpen] = useState(false);
-  
+
   // Approve/Reject states
   const [isApproving, setIsApproving] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
@@ -272,9 +272,9 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
               Edit
             </Button>
             {role === 'manager' && (
-              <IconButton 
-                color="error" 
-                onClick={handleDeleteTask} 
+              <IconButton
+                color="error"
+                onClick={handleDeleteTask}
                 disabled={isDeleting}
                 sx={{ borderRadius: '12px', border: '1px solid', borderColor: 'rgba(211, 47, 47, 0.2)' }}
               >
@@ -317,12 +317,12 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
                     <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800, mb: 2, display: 'block' }}>
                       Attachment
                     </Typography>
-                    <Box 
-                      sx={{ 
+                    <Box
+                      sx={{
                         position: 'relative',
-                        borderRadius: 4, 
-                        overflow: 'hidden', 
-                        border: '1px solid', 
+                        borderRadius: 4,
+                        overflow: 'hidden',
+                        border: '1px solid',
                         borderColor: 'divider',
                         cursor: 'zoom-in',
                         '&:hover .expand-overlay': { opacity: 1 }
@@ -330,14 +330,14 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
                       onClick={() => setIsImageFullOpen(true)}
                     >
                       <S3Image imageKey={task.imageKey} sx={{ width: '100%', maxHeight: 400 }} />
-                      <Box 
+                      <Box
                         className="expand-overlay"
-                        sx={{ 
-                          position: 'absolute', 
-                          inset: 0, 
-                          bgcolor: 'rgba(0,0,0,0.3)', 
-                          display: 'flex', 
-                          alignItems: 'center', 
+                        sx={{
+                          position: 'absolute',
+                          inset: 0,
+                          bgcolor: 'rgba(0,0,0,0.3)',
+                          display: 'flex',
+                          alignItems: 'center',
                           justifyContent: 'center',
                           opacity: 0,
                           transition: 'opacity 0.2s'
@@ -483,7 +483,7 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
                     <HistoryRounded sx={{ color: tokens.textSecondary }} />
                     <Typography variant="h6" sx={{ fontWeight: 800 }}>Activity Log</Typography>
                   </Box>
-                  
+
                   {logs.length > 0 ? (
                     <Stack spacing={3} sx={{ position: 'relative', pl: 3 }}>
                       <Box sx={{ position: 'absolute', left: 7, top: 10, bottom: 10, width: 2, bgcolor: 'rgba(255,255,255,0.05)', borderRadius: 1 }} />
@@ -532,7 +532,7 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
         }}
       >
         <Box sx={{ position: 'relative' }}>
-          <IconButton 
+          <IconButton
             onClick={() => setIsImageFullOpen(false)}
             sx={{ position: 'absolute', right: 16, top: 16, bgcolor: 'rgba(0,0,0,0.5)', color: 'white', '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' } }}
           >
@@ -545,8 +545,8 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
       </Dialog>
 
       {/* Rejection Dialog */}
-      <Dialog 
-        open={showRejectDialog} 
+      <Dialog
+        open={showRejectDialog}
         onClose={() => setShowRejectDialog(false)}
         slotProps={{
           paper: {
@@ -580,9 +580,9 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={() => setShowRejectDialog(false)} sx={{ borderRadius: 2 }}>Cancel</Button>
-          <Button 
-            variant="contained" 
-            color="error" 
+          <Button
+            variant="contained"
+            color="error"
             disabled={!rejectionReason.trim() || isRejecting}
             onClick={handleReject}
             sx={{ borderRadius: 2, fontWeight: 700 }}

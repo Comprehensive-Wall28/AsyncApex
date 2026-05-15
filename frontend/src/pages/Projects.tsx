@@ -29,6 +29,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import api from '../api';
 import type { Project, User, Team } from '../api/interface';
+import { ProjectViewModal } from '../components/ProjectViewModal';
 
 export const Projects: React.FC = () => {
   const { user, loading } = useAuth();
@@ -37,6 +38,7 @@ export const Projects: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | undefined>(undefined);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [viewOpen, setViewOpen] = useState(false);
   const navigate = useNavigate();
 
   const [users, setUsers] = useState<User[]>([]);
@@ -276,6 +278,7 @@ export const Projects: React.FC = () => {
                     variant="outlined"
                     onClick={() => {
                       setSelectedProject(project);
+                      setViewOpen(true)
                     }}
                     sx={{
                       borderRadius: '10px',
@@ -292,6 +295,14 @@ export const Projects: React.FC = () => {
           ))}
         </Grid>
       )}
-    </Container>
+      <ProjectViewModal
+        open={viewOpen}
+        onClose={() => setViewOpen(false)}
+        project={selectedProject}
+        role={isManager ? 'manager' : 'employee'}
+        onSave={() => setRefreshKey(k => k + 1)}
+        onDelete={() => setRefreshKey(k => k + 1)}
+      />
+    </Container >
   );
 };

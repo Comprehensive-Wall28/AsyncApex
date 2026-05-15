@@ -8,6 +8,7 @@ import {
   DashboardRounded,
   SettingsRounded,
   ViewColumnRounded,
+  FolderOpenRounded,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -40,6 +41,7 @@ export const CollapsibleSidebar: React.FC<SidebarProps> = ({ userName, collapsed
   const navItems = [
     { label: 'Dashboard', icon: <DashboardRounded />, path: '/dashboard' },
     { label: 'Tasks', icon: <ViewColumnRounded />, path: '/tasks' },
+    { label: 'Projects', icon: <FolderOpenRounded />, path: '/projects' },
   ];
 
   if (user?.role === 'manager') {

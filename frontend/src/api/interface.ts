@@ -24,13 +24,13 @@ export interface ActivityLog {
 }
 
 export interface Project {
-    projectId: string;
+    projectId: string;  // was 'id'
     name: string;
     description: string;
     managerId: string;
     createdAt: Date;
     updatedAt: Date;
-};
+}
 
 export interface Team {
     teamId: string;

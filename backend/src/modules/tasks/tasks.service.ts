@@ -47,11 +47,18 @@ export class TasksService {
   ) {}
 
   async create(dto: CreateTaskDto, user: RequestUser, file?: Express.Multer.File) {
-    const assigneeResult = await dynamoDB.send(
-      new GetCommand({ TableName: TABLES.Users, Key: { userId: dto.assigneeId } }),
-    );
-    if (!assigneeResult.Item) throw new NotFoundException('Assignee not found');
-    const assignee = assigneeResult.Item;
+    let assignee: any = null;
+    if (dto.assigneeId) {
+      const assigneeResult = await dynamoDB.send(
+        new GetCommand({ TableName: TABLES.Users, Key: { userId: dto.assigneeId } }),
+      );
+      if (!assigneeResult.Item) throw new NotFoundException('Assignee not found');
+      assignee = assigneeResult.Item;
+
+      if (assignee['teamId'] !== dto.teamId) {
+        throw new BadRequestException('Assignee does not belong to this team');
+      }
+    }
 
     const teamResult = await dynamoDB.send(
       new GetCommand({ TableName: TABLES.Teams, Key: { teamId: dto.teamId } }),
@@ -62,10 +69,6 @@ export class TasksService {
       new GetCommand({ TableName: TABLES.Projects, Key: { projectId: dto.projectId } }),
     );
     if (!projectResult.Item) throw new NotFoundException('Project not found');
-
-    if (assignee['teamId'] !== dto.teamId) {
-      throw new BadRequestException('Assignee does not belong to this team');
-    }
 
     let imageKey: string | undefined;
     if (file) {
@@ -92,16 +95,18 @@ export class TasksService {
 
     await dynamoDB.send(new PutCommand({ TableName: TABLES.Tasks, Item: task }));
 
-    try {
-      await this.notificationsService.publishTaskAssignment({
-        taskId: task.taskId,
-        taskTitle: dto.title,
-        assigneeEmail: assignee['email'],
-        assigneeName: assignee['name'],
-        teamId: dto.teamId,
-      });
-    } catch (err) {
-      this.logger.warn(`Failed to send assignment notification: ${err}`);
+    if (assignee) {
+      try {
+        await this.notificationsService.publishTaskAssignment({
+          taskId: task.taskId,
+          taskTitle: dto.title,
+          assigneeEmail: assignee['email'],
+          assigneeName: assignee['name'],
+          teamId: dto.teamId,
+        });
+      } catch (err) {
+        this.logger.warn(`Failed to send assignment notification: ${err}`);
+      }
     }
 
     return task;

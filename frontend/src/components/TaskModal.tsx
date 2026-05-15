@@ -29,6 +29,7 @@ interface TaskModalProps {
 export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, task }) => {
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -141,7 +142,9 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !priority) return;
+    if (!title || !priority || (!task && (!teamId || !projectId))) return;
+
+    setError(null);
 
     try {
       setLoading(true);
@@ -197,8 +200,9 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
 
       onSave();
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save task', error);
+      setError(error.message || 'An unexpected error occurred while saving the task.');
     } finally {
       setLoading(false);
     }
@@ -246,6 +250,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
             </Stack>
           ) : (
             <Stack spacing={3}>
+              {error && (
+                <Box sx={{ p: 2, bgcolor: 'error.main', color: 'white', borderRadius: 1, fontSize: '0.875rem' }}>
+                  {error}
+                </Box>
+              )}
               <TextField
                 required
                 fullWidth
@@ -296,16 +305,28 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
                     onChange={(e) => setAssigneeId(e.target.value)}
                   >
                     <MenuItem value=""><em>Unassigned</em></MenuItem>
-                    {users.map((u) => (
-                      <MenuItem key={u.userId} value={u.userId}>{u.name}</MenuItem>
-                    ))}
+                    {users
+                      .filter(u => !teamId || u.teamId === teamId)
+                      .map((u) => (
+                        <MenuItem key={u.userId} value={u.userId}>{u.name}</MenuItem>
+                      ))}
                   </TextField>
                   <TextField
                     select
+                    required={!task}
                     fullWidth
                     label="Team"
                     value={teams.some(t => t.teamId === teamId) ? teamId : ''}
-                    onChange={(e) => setTeamId(e.target.value)}
+                    onChange={(e) => {
+                      setTeamId(e.target.value);
+                      // Clear assignee if they don't belong to the new team
+                      if (e.target.value) {
+                        const currentAssignee = users.find(u => u.userId === assigneeId);
+                        if (currentAssignee && currentAssignee.teamId !== e.target.value) {
+                          setAssigneeId('');
+                        }
+                      }
+                    }}
                   >
                     <MenuItem value=""><em>None</em></MenuItem>
                     {teams.map((t) => (
@@ -316,6 +337,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
 
               <TextField
                 select
+                required={!task}
                 fullWidth
                 label="Project"
                 value={projects.some(p => p.projectId === projectId) ? projectId : ''}
@@ -400,7 +422,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
           <Button 
             type="submit" 
             variant="contained" 
-            disabled={loading || dataLoading || !title}
+            disabled={loading || dataLoading || !title || (!task && (!teamId || !projectId))}
             startIcon={loading && <CircularProgress size={16} color="inherit" />}
           >
             {task ? 'Save Changes' : 'Create Task'}

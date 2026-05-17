@@ -122,6 +122,20 @@ export class TasksController {
     return this.tasksService.findOne(id, req.user);
   }
 
+  @Get(':id/logs')
+  @ApiOperation({
+    summary: 'Get task activity logs',
+    description:
+      'Returns the audit log for a task. Managers can view any task logs; employees only for tasks in their own team.',
+  })
+  @ApiParam({ name: 'id', description: 'taskId (UUID)' })
+  @ApiResponse({ status: 200, description: 'Array of activity log items' })
+  @ApiResponse({ status: 403, description: 'Task belongs to a different team' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
+  getLogs(@Param('id') id: string, @Req() req: any) {
+    return this.tasksService.getActivityLogs(id, req.user);
+  }
+
   @Patch(':id')
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
   @ApiConsumes('multipart/form-data')

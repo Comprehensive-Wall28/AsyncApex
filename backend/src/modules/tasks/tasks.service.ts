@@ -440,6 +440,37 @@ export class TasksService {
     return result.Attributes;
   }
 
+  async getActivityLogs(taskId: string, user: RequestUser) {
+    // Ensures server-side team isolation (employees can't access other-team tasks)
+    await this.findOne(taskId, user);
+
+    try {
+      const result = await dynamoDB.send(
+        new QueryCommand({
+          TableName: TABLES.ActivityLog,
+          KeyConditionExpression: '#taskId = :taskId',
+          ExpressionAttributeNames: { '#taskId': 'taskId' },
+          ExpressionAttributeValues: { ':taskId': taskId },
+          ScanIndexForward: true,
+        }),
+      );
+      return result.Items || [];
+    } catch (err) {
+      // Fallback if ActivityLog isn't keyed in a way that supports Query
+      const result = await dynamoDB.send(
+        new ScanCommand({
+          TableName: TABLES.ActivityLog,
+          FilterExpression: '#taskId = :taskId',
+          ExpressionAttributeNames: { '#taskId': 'taskId' },
+          ExpressionAttributeValues: { ':taskId': taskId },
+        }),
+      );
+      const items = result.Items || [];
+      items.sort((a: any, b: any) => String(a.timestamp).localeCompare(String(b.timestamp)));
+      return items;
+    }
+  }
+
   private async logStatusChange(
     taskId: string,
     changedBy: string,
@@ -452,6 +483,7 @@ export class TasksService {
         Item: {
           taskId,
           timestamp: new Date().toISOString(),
+          eventType: 'STATUS_CHANGED',
           changedBy,
           oldStatus,
           newStatus,

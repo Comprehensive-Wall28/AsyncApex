@@ -421,9 +421,10 @@ export class TasksService {
   }
 
   async getActivityLogs(taskId: string, user: RequestUser) {
-    // Ensures server-side team isolation (employees can't access other-team tasks)
+    // Verify task exists and user has access
     await this.findOne(taskId, user);
 
+    let logs: any[] = [];
     try {
       const result = await dynamoDB.send(
         new QueryCommand({
@@ -431,10 +432,10 @@ export class TasksService {
           KeyConditionExpression: '#taskId = :taskId',
           ExpressionAttributeNames: { '#taskId': 'taskId' },
           ExpressionAttributeValues: { ':taskId': taskId },
-          ScanIndexForward: true,
+          ScanIndexForward: false, // Return newest first
         }),
       );
-      return result.Items || [];
+      logs = result.Items || [];
     } catch (err) {
       // Fallback if ActivityLog isn't keyed in a way that supports Query
       const result = await dynamoDB.send(
@@ -445,10 +446,29 @@ export class TasksService {
           ExpressionAttributeValues: { ':taskId': taskId },
         }),
       );
-      const items = result.Items || [];
-      items.sort((a: any, b: any) => String(a.timestamp).localeCompare(String(b.timestamp)));
-      return items;
+      logs = result.Items || [];
+      // Sort newest first
+      logs.sort((a: any, b: any) => String(b.timestamp).localeCompare(String(a.timestamp)));
     }
+
+    // Fetch user details for each log entry to provide names
+    const logsWithUserInfo = await Promise.all(
+      logs.map(async (log) => {
+        try {
+          const userResult = await dynamoDB.send(
+            new GetCommand({ TableName: TABLES.Users, Key: { userId: log.changedBy } }),
+          );
+          return {
+            ...log,
+            userName: userResult.Item ? userResult.Item['name'] : 'Unknown User',
+          };
+        } catch (err) {
+          return { ...log, userName: 'Unknown User' };
+        }
+      }),
+    );
+
+    return logsWithUserInfo;
   }
 
   private async logStatusChange(
@@ -472,39 +492,6 @@ export class TasksService {
     );
   }
 
-  async getActivityLogs(taskId: string, user: RequestUser) {
-    // Verify task exists and user has access
-    await this.findOne(taskId, user);
-
-    const result = await dynamoDB.send(
-      new QueryCommand({
-        TableName: TABLES.ActivityLog,
-        KeyConditionExpression: 'taskId = :taskId',
-        ExpressionAttributeValues: { ':taskId': taskId },
-        ScanIndexForward: false, // Return newest first
-      }),
-    );
-
-    // Fetch user details for each log entry to provide names
-    const logs = result.Items || [];
-    const logsWithUserInfo = await Promise.all(
-      logs.map(async (log) => {
-        try {
-          const userResult = await dynamoDB.send(
-            new GetCommand({ TableName: TABLES.Users, Key: { userId: log.changedBy } }),
-          );
-          return {
-            ...log,
-            userName: userResult.Item ? userResult.Item['name'] : 'Unknown User',
-          };
-        } catch (err) {
-          return { ...log, userName: 'Unknown User' };
-        }
-      }),
-    );
-
-    return logsWithUserInfo;
-  }
 
   async getGlobalStats() {
     const result = await dynamoDB.send(new ScanCommand({ TableName: TABLES.Tasks }));

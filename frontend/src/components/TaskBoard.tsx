@@ -270,6 +270,8 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
 
+  const isManager = role === 'manager'
+
   return (
     <Box
       ref={setNodeRef}
@@ -383,18 +385,25 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const data = await api.tasks.getAll({ teamId: teamId });
-      setTasks(data as any);
+
+      const me = await api.users.getMe() as any;
+
+      const data =
+        me.role === 'manager'
+          ? await api.tasks.getAll()
+          : await api.tasks.getAllByUser(me.userId);
+
+      setTasks(Array.isArray(data) ? data : []);
     } catch (err) {
-      const fail = 'Failed to fetch tasks '
-      toast.error(fail + err)
+      const fail = 'Failed to fetch tasks ';
+      toast.error(fail + err);
       console.error(fail, err);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchTasks(); }, [teamId, role, refreshKey]);
+  useEffect(() => { fetchTasks(); }, [teamId, refreshKey]);
 
   const handleStartTask = async (taskId: string) => {
     try {
@@ -422,8 +431,10 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
 
   const handleApproveTask = async (taskId: string) => {
     try {
-      await api.tasks.approve(taskId);
-      setTasks(prev => prev.map(t => t.taskId === taskId ? { ...t, status: 'done' } : t));
+      if (role === 'manager') {
+        await api.tasks.approve(taskId);
+        setTasks(prev => prev.map(t => t.taskId === taskId ? { ...t, status: 'done' } : t));
+      }
     } catch (error) {
       const fail = 'Failed to approve task '
       toast.error(fail + error)
@@ -486,23 +497,26 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
     const activeId = active.id as string;
     const overId = over.id as string;
 
+    if (activeId === overId) return; // 👈 add this
+
     const activeContainer = findContainer(activeId);
     const overContainer = findContainer(overId);
 
-    if (!activeContainer || !overContainer || activeContainer === overContainer) {
-      return;
-    }
+    if (!activeContainer || !overContainer || activeContainer === overContainer) return;
 
     setTasks((prev) => {
       const activeIndex = prev.findIndex((t) => t.taskId === activeId);
+
+      if (activeIndex === -1) return prev; // 👈 add this — task not found, don't update
+
       const overIndex = prev.findIndex((t) => t.taskId === overId);
 
-      let newIndex;
-      if (['todo', 'in-progress', 'in-review', 'done'].includes(overId)) {
-        newIndex = prev.length;
-      } else {
-        newIndex = overIndex >= 0 ? overIndex : prev.length;
-      }
+      const newIndex = ['todo', 'in-progress', 'in-review', 'done'].includes(overId)
+        ? prev.length
+        : overIndex >= 0 ? overIndex : prev.length;
+
+      // 👇 Don't update if status is already correct
+      if (prev[activeIndex].status === overContainer) return prev;
 
       const updatedTask = { ...prev[activeIndex], status: overContainer as Task['status'] };
       const newTasks = [...prev];
@@ -531,6 +545,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
     if (initialStatus && overContainer && initialStatus !== overContainer) {
       // Sync with API
       try {
+        console.log("Meow")
         if (initialStatus === 'todo' && overContainer === 'in-progress') {
           await api.tasks.start(activeId);
         } else if (initialStatus === 'in-progress' && overContainer === 'in-review') {

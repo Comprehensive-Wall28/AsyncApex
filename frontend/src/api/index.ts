@@ -17,6 +17,7 @@ export const api = {
   tasks: {
     getAll: (params?: { teamId?: string; assigneeId?: string; status?: string; projectId?: string }) =>
       client.get('/tasks', { params }),
+    getAllByUser: (userId: string) => client.get(`/tasks/by-user/${userId}`),
     getOne: (id: string) => client.get(`/tasks/${id}`),
     create: (data: any) => client.post('/tasks', data),
     // For file uploads, we need to skip the default JSON Content-Type

@@ -174,18 +174,36 @@ export class TasksService {
   }
 
   async getTasksByUser(targetUserId: string, requester: RequestUser) {
-    // Managers can view any user's tasks. Employees can only view their own tasks.
     if (requester.role !== 'manager' && requester.userId !== targetUserId) {
       throw new ForbiddenException('Access denied to requested user tasks');
     }
 
     if (requester.role !== 'manager') {
+      const assignedToMe = await this.queryByIndex(
+        'assigneeId-index',
+        'assigneeId',
+        targetUserId,
+        {},
+      );
+
       if (!requester.teamId) {
-        throw new ForbiddenException('User is not assigned to a team');
+        return assignedToMe;
       }
-      // Employee scope is always restricted to their own team.
-      return this.queryByIndex('assigneeId-index', 'assigneeId', targetUserId, {
-        teamId: requester.teamId,
+
+      const assignedToTeam = await this.queryByIndex(
+        'teamId-index',
+        'teamId',
+        requester.teamId,
+        {},
+      );
+
+      const merged = [...assignedToMe, ...assignedToTeam];
+      const seen = new Set();
+
+      return merged.filter((task) => {
+        if (seen.has(task.taskId)) return false;
+        seen.add(task.taskId);
+        return true;
       });
     }
 
@@ -303,7 +321,6 @@ export class TasksService {
     const allowed: Record<string, string> = {
       'todo': 'in-progress',
       'in-progress': 'in-review',
-      'in-review': 'done',
     };
 
     if (allowed[from] !== to) {
@@ -445,6 +462,8 @@ export class TasksService {
     if (user.role !== 'manager') {
       throw new ForbiddenException('Only managers can approve tasks');
     }
+
+    console.log(`Approving task ${taskId} by manager ${user.userId}`);
 
     const task = await this.findOne(taskId, user);
 

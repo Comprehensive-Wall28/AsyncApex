@@ -30,6 +30,7 @@ export interface Project {
     managerId: string;
     createdAt: Date;
     updatedAt: Date;
+    status: 'todo' | 'in-progress' | 'in-review' | 'done';
 }
 
 export interface Team {

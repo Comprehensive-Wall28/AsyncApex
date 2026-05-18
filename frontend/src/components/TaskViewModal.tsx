@@ -39,6 +39,7 @@ import type { Task, User, Team, Project, ActivityLog, Comment } from '../api/int
 import { S3Image } from './S3Image';
 import { tokens } from '../theme/theme';
 import { useAuth } from '../hooks/useAuth';
+import toast from 'react-hot-toast';
 
 interface TaskViewModalProps {
   open: boolean;
@@ -96,7 +97,9 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
       const data = await api.tasks.getOne(taskId);
       setTask(data as any);
     } catch (err) {
-      console.error('Failed to fetch task details', err);
+      const fail = 'Failed to fetch task details '
+      toast.error(fail + err)
+      console.error(fail, err);
     } finally {
       setLoading(false);
     }
@@ -107,7 +110,9 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
       const data = await api.tasks.getLogs(taskId);
       setLogs(data as any);
     } catch (err) {
-      console.error('Failed to fetch logs', err);
+      const fail = 'Failed to fetch logs '
+      toast.error(fail + err)
+      console.error(fail, err);
     }
   };
 
@@ -119,7 +124,9 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
       const sorted = (data as Comment[]).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
       setComments(sorted);
     } catch (err) {
-      console.error('Failed to fetch comments', err);
+      const fail = 'Failed to fetch comments '
+      toast.error(fail + err)
+      console.error(fail, err);
     } finally {
       setCommentsLoading(false);
     }
@@ -137,7 +144,9 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
       setComments(prev => [...prev, newComment as any]);
       setCommentText('');
     } catch (err) {
-      console.error('Failed to post comment', err);
+      const fail = 'Failed to post comment '
+      toast.error(fail + err)
+      console.error(fail, err);
     } finally {
       setIsPostingComment(false);
     }
@@ -149,7 +158,9 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
       await api.comments.delete(commentId);
       setComments(prev => prev.filter(c => c.commentId !== commentId));
     } catch (err) {
-      console.error('Failed to delete comment', err);
+      const fail = 'Failed to delete comment '
+      toast.error(fail + err)
+      console.error(fail, err);
     }
   };
 
@@ -163,7 +174,9 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
       onDelete?.();
       onClose();
     } catch (err) {
-      console.error('Failed to delete task', err);
+      const fail = 'Failed to delete task '
+      toast.error(fail + err)
+      console.error(fail, err);
       alert('Failed to delete task. Please try again.');
     } finally {
       setIsDeleting(false);
@@ -178,7 +191,9 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
       setTask(prev => prev ? { ...prev, status: 'done' } : undefined);
       fetchLogs(task.taskId);
     } catch (err) {
-      console.error('Failed to approve task', err);
+      const fail = 'Failed to approve task '
+      toast.error(fail + err)
+      console.error(fail, err);
     } finally {
       setIsApproving(false);
     }
@@ -199,7 +214,9 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
       fetchLogs(task.taskId);
       fetchComments(task.taskId);
     } catch (err) {
-      console.error('Failed to reject task', err);
+      const fail = 'Failed to reject task '
+      toast.error(fail + err)
+      console.error(fail, err);
     } finally {
       setIsRejecting(false);
     }
@@ -365,12 +382,27 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
                     </Stack>
                   </Grid>
                   <Grid size={{ xs: 12, md: 6 }}>
-                    <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800, mb: 1, display: 'block' }}>Assignee</Typography>
+                    {/* Dynamic Title: Shows 'Assignee' if true, otherwise 'Team' */}
+                    <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800, mb: 1, display: 'block' }}>
+                      {assignee ? 'Assignee' : 'Team'}
+                    </Typography>
+
                     <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+
+                      {/* Dynamic Avatar Initials */}
                       <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.dark', fontSize: '0.875rem', fontWeight: 800 }}>
-                        {assignee ? assignee.name.substring(0, 2).toUpperCase() : '?'}
+                        {assignee
+                          ? assignee.name.substring(0, 2).toUpperCase()
+                          : (team ? team.name.substring(0, 2).toUpperCase() : '?')}
                       </Avatar>
-                      <Typography sx={{ fontWeight: 700 }}>{assignee ? assignee.name : 'Unassigned'}</Typography>
+
+                      {/* Dynamic Display Name */}
+                      <Typography sx={{ fontWeight: 700 }}>
+                        {assignee
+                          ? assignee.name
+                          : (team ? team.name : 'Unassigned')}
+                      </Typography>
+
                     </Stack>
                   </Grid>
                 </Grid>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import toast from 'react-hot-toast';
 import {
   Box,
   Typography,
@@ -385,7 +386,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
       const data = await api.tasks.getAll({ teamId: teamId });
       setTasks(data as any);
     } catch (err) {
-      console.error('Failed to fetch tasks', err);
+      const fail = 'Failed to fetch tasks '
+      toast.error(fail + err)
+      console.error(fail, err);
     } finally {
       setLoading(false);
     }
@@ -398,7 +401,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
       await api.tasks.start(taskId);
       setTasks(prev => prev.map(t => t.taskId === taskId ? { ...t, status: 'in-progress' } : t));
     } catch (error) {
-      console.error('Failed to start task', error);
+      const fail = 'Failed to start task ';
+      toast.error(fail + error)
+      console.error(fail, error);
       fetchTasks();
     }
   };
@@ -408,7 +413,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
       await api.tasks.submit(taskId);
       setTasks(prev => prev.map(t => t.taskId === taskId ? { ...t, status: 'in-review' } : t));
     } catch (error) {
-      console.error('Failed to submit task', error);
+      const fail = 'Failed to submit task '
+      toast.error(fail + error)
+      console.error(fail, error);
       fetchTasks();
     }
   };
@@ -418,7 +425,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
       await api.tasks.approve(taskId);
       setTasks(prev => prev.map(t => t.taskId === taskId ? { ...t, status: 'done' } : t));
     } catch (error) {
-      console.error('Failed to approve task', error);
+      const fail = 'Failed to approve task '
+      toast.error(fail + error)
+      console.error(fail, error);
       fetchTasks();
     }
   };
@@ -444,7 +453,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
       setTasks(prev => prev.map(t => t.taskId === rejectingTaskId ? { ...t, status: 'in-progress' } : t));
       setRejectingTaskId(null);
     } catch (error) {
-      console.error('Failed to reject task', error);
+      const fail = 'Failed to reject task '
+      toast.error(fail + error)
+      console.error(fail, error);
       fetchTasks();
     } finally {
       setIsRejecting(false);
@@ -532,7 +543,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
           await api.tasks.update(activeId, { status: overContainer });
         }
       } catch (error) {
-        console.error('Failed to sync status', error);
+        const fail = 'Failed to sync status '
+        toast.error(fail + error)
+        console.error(fail, error);
         fetchTasks();
       }
     } else if (active.id !== over.id) {

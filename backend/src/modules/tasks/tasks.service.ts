@@ -44,39 +44,68 @@ export class TasksService {
     private readonly notificationsService: NotificationsService,
     private readonly usersService: UsersService,
     private readonly s3Service: S3Service,
-  ) {}
+  ) { }
 
   async create(dto: CreateTaskDto, user: RequestUser, file?: Express.Multer.File) {
+    const hasAssignee = !!dto.assigneeId;
+    const hasTeam = !!dto.teamId;
+
+    if (hasAssignee === hasTeam) {
+      throw new BadRequestException(
+        'You must provide either assigneeId or teamId, but not both.',
+      );
+    }
+
     let assignee: any = null;
+
     if (dto.assigneeId) {
       const assigneeResult = await dynamoDB.send(
-        new GetCommand({ TableName: TABLES.Users, Key: { userId: dto.assigneeId } }),
+        new GetCommand({
+          TableName: TABLES.Users,
+          Key: { userId: dto.assigneeId },
+        }),
       );
-      if (!assigneeResult.Item) throw new NotFoundException('Assignee not found');
-      assignee = assigneeResult.Item;
 
-      if (assignee['teamId'] !== dto.teamId) {
-        throw new BadRequestException('Assignee does not belong to this team');
+      if (!assigneeResult.Item) {
+        throw new NotFoundException('Assignee not found');
+      }
+
+      assignee = assigneeResult.Item;
+    }
+
+    if (dto.teamId) {
+      const teamResult = await dynamoDB.send(
+        new GetCommand({
+          TableName: TABLES.Teams,
+          Key: { teamId: dto.teamId },
+        }),
+      );
+
+      if (!teamResult.Item) {
+        throw new NotFoundException('Team not found');
       }
     }
 
-    const teamResult = await dynamoDB.send(
-      new GetCommand({ TableName: TABLES.Teams, Key: { teamId: dto.teamId } }),
-    );
-    if (!teamResult.Item) throw new NotFoundException('Team not found');
-
     const projectResult = await dynamoDB.send(
-      new GetCommand({ TableName: TABLES.Projects, Key: { projectId: dto.projectId } }),
+      new GetCommand({
+        TableName: TABLES.Projects,
+        Key: { projectId: dto.projectId },
+      }),
     );
-    if (!projectResult.Item) throw new NotFoundException('Project not found');
+
+    if (!projectResult.Item) {
+      throw new NotFoundException('Project not found');
+    }
 
     let imageKey: string | undefined;
+
     if (file) {
       const uploaded = await this.s3Service.upload(file);
       imageKey = uploaded.key;
     }
 
     const now = new Date().toISOString();
+
     const task = {
       taskId: uuidv4(),
       title: dto.title,
@@ -93,7 +122,12 @@ export class TasksService {
       updatedAt: now,
     };
 
-    await dynamoDB.send(new PutCommand({ TableName: TABLES.Tasks, Item: task }));
+    await dynamoDB.send(
+      new PutCommand({
+        TableName: TABLES.Tasks,
+        Item: task,
+      }),
+    );
 
     if (assignee) {
       try {
@@ -102,7 +136,7 @@ export class TasksService {
           taskTitle: dto.title,
           assigneeEmail: assignee['email'],
           assigneeName: assignee['name'],
-          teamId: dto.teamId,
+          teamId: assignee['teamId'],
         });
       } catch (err) {
         this.logger.warn(`Failed to send assignment notification: ${err}`);
@@ -171,13 +205,40 @@ export class TasksService {
     return task;
   }
 
+  private async checkHelp(user: RequestUser, taskId: string) {
+    const task = await this.findOne(taskId, user);
+
+    const isManager = user.role === 'manager';
+    const isAssignedUser = task.assigneeId === user.userId;
+    const isInAssignedTeam = task.teamId && user.teamId === task.teamId;
+  }
+
+  private isManager(user: RequestUser) {
+    return user.role === 'manager';
+  }
+
+  private async isAssignedUser(user: RequestUser, taskId: string) {
+    const task = await this.findOne(taskId, user);
+    return task.assigneeId === user.userId;
+  }
+
+  private async isInAssignedTeam(user: RequestUser, taskId: string) {
+    const task = await this.findOne(taskId, user);
+    return !!task.teamId && user.teamId === task.teamId;
+  }
+
   async update(taskId: string, dto: UpdateTaskDto, user: RequestUser, file?: Express.Multer.File) {
     const task = await this.findOne(taskId, user);
 
-    if (user.role !== 'manager' && task['assigneeId'] !== user.userId) {
-      throw new ForbiddenException('Only the assigned employee or a manager can update this task');
+    if (
+      !this.isManager(user) &&
+      !(await this.isAssignedUser(user, taskId)) &&
+      !(await this.isInAssignedTeam(user, taskId))
+    ) {
+      throw new ForbiddenException(
+        'Only the assigned employee, assigned team members, or a manager can update this task',
+      );
     }
-
     if (dto.status && dto.status !== task['status']) {
       this.validateStatusTransition(task['status'], dto.status, user.role);
     }
@@ -323,8 +384,14 @@ export class TasksService {
       throw new BadRequestException(`Task status is ${task['status']}, not 'todo'. Cannot start a task that's already in progress.`);
     }
 
-    if (user.role !== 'manager' && task['assigneeId'] !== user.userId) {
-      throw new ForbiddenException('Only the assigned employee can start this task');
+    if (
+      !this.isManager(user) &&
+      !(await this.isAssignedUser(user, taskId)) &&
+      !(await this.isInAssignedTeam(user, taskId))
+    ) {
+      throw new ForbiddenException(
+        'Only the assigned employee, assigned team members, or a manager can start this task',
+      );
     }
 
     const result = await dynamoDB.send(
@@ -349,8 +416,14 @@ export class TasksService {
       throw new BadRequestException(`Task status is ${task['status']}, not 'in-progress'. Only in-progress tasks can be submitted for review.`);
     }
 
-    if (user.role !== 'manager' && task['assigneeId'] !== user.userId) {
-      throw new ForbiddenException('Only the assigned employee can submit this task for review');
+    if (
+      !this.isManager(user) &&
+      !(await this.isAssignedUser(user, taskId)) &&
+      !(await this.isInAssignedTeam(user, taskId))
+    ) {
+      throw new ForbiddenException(
+        'Only the assigned employee, assigned team members, or a manager can submit this task for review',
+      );
     }
 
     const result = await dynamoDB.send(

@@ -1,5 +1,21 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsOptional, IsString, ValidationArguments, ValidatorConstraint, ValidatorConstraintInterface } from 'class-validator';
+
+@ValidatorConstraint({ name: 'ExactlyOneAssignment', async: false })
+class ExactlyOneAssignment implements ValidatorConstraintInterface {
+  validate(_: any, args: ValidationArguments) {
+    const obj = args.object as any;
+
+    const hasAssignee = !!obj.assigneeId;
+    const hasTeam = !!obj.teamId;
+
+    return hasAssignee !== hasTeam;
+  }
+
+  defaultMessage() {
+    return 'You must provide either assigneeId or teamId, but not both.';
+  }
+}
 
 export class CreateTaskDto {
   @ApiProperty({ example: 'Fix login bug' })
@@ -27,7 +43,8 @@ export class CreateTaskDto {
 
   @ApiProperty({ example: 'a1b2c3d4-...', description: 'teamId the task belongs to' })
   @IsString()
-  teamId: string;
+  @IsOptional()
+  teamId?: string;
 
   @ApiProperty({ example: 'a1b2c3d4-...', description: 'projectId the task belongs to' })
   @IsString()

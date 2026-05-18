@@ -30,7 +30,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -49,6 +49,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const hasAssignee = !!assigneeId;
+  const hasTeam = !!teamId;
+  const hasExactlyOneAssignment = hasAssignee !== hasTeam;
+  const canSubmit = !!title && !!priority && !!projectId && hasExactlyOneAssignment;
 
   useEffect(() => {
     if (open) {
@@ -104,7 +109,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
     e.preventDefault();
     setIsDragging(true);
   };
-  
+
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
@@ -140,61 +145,77 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const appendIfExists = (formData: FormData, key: string, value?: string) => {
+    if (value) {
+      formData.append(key, value);
+    }
+  };
+
+  const buildTaskPayload = () => ({
+    title,
+    description: description || undefined,
+    priority,
+    deadline: deadline || undefined,
+    assigneeId: assigneeId || undefined,
+    teamId: teamId || undefined,
+    projectId: projectId || undefined,
+  });
+
+  const buildTaskFormData = (isUpdate: boolean) => {
+    const formData = new FormData();
+
+    formData.append('title', title);
+    formData.append('priority', priority);
+
+    appendIfExists(formData, 'description', description);
+    appendIfExists(formData, 'deadline', deadline);
+    appendIfExists(formData, 'assigneeId', assigneeId);
+    appendIfExists(formData, 'teamId', teamId);
+    appendIfExists(formData, 'projectId', projectId);
+
+    if (isUpdate) {
+      formData.append('status', task?.status || 'todo');
+    }
+
+    if (selectedFile) {
+      formData.append('file', selectedFile);
+    }
+
+    return formData;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !priority || (!task && (!teamId || !projectId))) return;
+
+    if (!canSubmit) {
+      setError('Choose either an assignee or a team, but not both.');
+      return;
+    }
 
     setError(null);
+    setLoading(true);
 
     try {
-      setLoading(true);
-      
       const isUpdate = !!task?.taskId;
 
       if (selectedFile) {
-        const formData = new FormData();
-        formData.append('title', title);
-        if (description) formData.append('description', description);
-        formData.append('priority', priority);
-        if (deadline) formData.append('deadline', deadline);
-        if (assigneeId) formData.append('assigneeId', assigneeId);
-        
-        if (!isUpdate) {
-          if (teamId) formData.append('teamId', teamId);
-          if (projectId) formData.append('projectId', projectId);
-        } else {
-          formData.append('status', task.status || 'todo');
-        }
-        
-        formData.append('file', selectedFile);
+        const formData = buildTaskFormData(isUpdate);
 
         if (isUpdate) {
-          await api.tasks.updateWithFile(task!.taskId, formData);
+          await api.tasks.updateWithFile(task.taskId, formData);
         } else {
           await api.tasks.createWithFile(formData);
         }
       } else {
+        const payload = buildTaskPayload();
+
         if (isUpdate) {
-          const updatePayload = {
-            title,
-            description,
-            priority,
-            deadline: deadline || undefined,
-            assigneeId: assigneeId || undefined,
-            status: task.status || 'todo'
-          };
-          await api.tasks.update(task.taskId, updatePayload);
+          await api.tasks.update(task!.taskId, {
+            ...payload,
+            status: task?.status || 'todo',
+          });
         } else {
-          const createPayload = {
-            title,
-            description,
-            priority,
-            deadline: deadline || undefined,
-            assigneeId: assigneeId || undefined,
-            teamId: teamId || undefined,
-            projectId: projectId || undefined
-          };
-          await api.tasks.create(createPayload);
+          await api.tasks.create(payload);
         }
       }
 
@@ -209,17 +230,17 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
   };
 
   return (
-    <Dialog 
-      open={open} 
-      onClose={!loading ? onClose : undefined} 
-      maxWidth="lg" 
-      fullWidth 
-      sx={{ 
-        '& .MuiDialog-paper': { 
-          bgcolor: 'background.default', 
+    <Dialog
+      open={open}
+      onClose={!loading ? onClose : undefined}
+      maxWidth="lg"
+      fullWidth
+      sx={{
+        '& .MuiDialog-paper': {
+          bgcolor: 'background.default',
           borderRadius: 3,
           boxShadow: '0 24px 48px rgba(0,0,0,0.5)'
-        } 
+        }
       }}
     >
       <DialogTitle component="div" sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -230,7 +251,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
           <CloseRounded />
         </IconButton>
       </DialogTitle>
-      
+
       <form onSubmit={handleSubmit}>
         <DialogContent dividers sx={{ borderColor: 'divider', p: 3 }}>
           {dataLoading ? (
@@ -263,7 +284,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
-              
+
               <TextField
                 fullWidth
                 label="Description"
@@ -275,64 +296,66 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
               />
 
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                  <TextField
-                    select
-                    fullWidth
-                    label="Priority"
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value)}
-                  >
-                    <MenuItem value="low">Low</MenuItem>
-                    <MenuItem value="medium">Medium</MenuItem>
-                    <MenuItem value="high">High</MenuItem>
-                  </TextField>
-                  <TextField
-                    fullWidth
-                    label="Deadline"
-                    type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    value={deadline}
-                    onChange={(e) => setDeadline(e.target.value)}
-                  />
+                <TextField
+                  select
+                  fullWidth
+                  label="Priority"
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value)}
+                >
+                  <MenuItem value="low">Low</MenuItem>
+                  <MenuItem value="medium">Medium</MenuItem>
+                  <MenuItem value="high">High</MenuItem>
+                </TextField>
+                <TextField
+                  fullWidth
+                  label="Deadline"
+                  type="date"
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  value={deadline}
+                  onChange={(e) => setDeadline(e.target.value)}
+                />
               </Box>
 
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                  <TextField
-                    select
-                    fullWidth
-                    label="Assignee"
-                    value={users.some(u => u.userId === assigneeId) ? assigneeId : ''}
-                    onChange={(e) => setAssigneeId(e.target.value)}
-                  >
-                    <MenuItem value=""><em>Unassigned</em></MenuItem>
-                    {users
-                      .filter(u => !teamId || u.teamId === teamId)
-                      .map((u) => (
-                        <MenuItem key={u.userId} value={u.userId}>{u.name}</MenuItem>
-                      ))}
-                  </TextField>
-                  <TextField
-                    select
-                    required={!task}
-                    fullWidth
-                    label="Team"
-                    value={teams.some(t => t.teamId === teamId) ? teamId : ''}
-                    onChange={(e) => {
-                      setTeamId(e.target.value);
-                      // Clear assignee if they don't belong to the new team
-                      if (e.target.value) {
-                        const currentAssignee = users.find(u => u.userId === assigneeId);
-                        if (currentAssignee && currentAssignee.teamId !== e.target.value) {
-                          setAssigneeId('');
-                        }
-                      }
-                    }}
-                  >
-                    <MenuItem value=""><em>None</em></MenuItem>
-                    {teams.map((t) => (
-                      <MenuItem key={t.teamId} value={t.teamId}>{t.name}</MenuItem>
+                <TextField
+                  select
+                  fullWidth
+                  label="Assignee"
+                  value={users.some(u => u.userId === assigneeId) ? assigneeId : ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setAssigneeId(value);
+
+                    if (value) { setTeamId(''); }
+                  }}
+                >
+                  <MenuItem value=""><em>Unassigned</em></MenuItem>
+                  {users
+                    .filter(u => !teamId || u.teamId === teamId)
+                    .map((u) => (
+                      <MenuItem key={u.userId} value={u.userId}>{u.name}</MenuItem>
                     ))}
-                  </TextField>
+                </TextField>
+                <TextField
+                  select
+                  fullWidth
+                  label="Team"
+                  value={teams.some(t => t.teamId === teamId) ? teamId : ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setTeamId(value);
+
+                    if (value) {
+                      setAssigneeId('');
+                    }
+                  }}
+                >
+                  <MenuItem value=""><em>None</em></MenuItem>
+                  {teams.map((t) => (
+                    <MenuItem key={t.teamId} value={t.teamId}>{t.name}</MenuItem>
+                  ))}
+                </TextField>
               </Box>
 
               <TextField
@@ -352,15 +375,15 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
               {/* Drag and Drop Zone */}
               <Box>
                 <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>Attachment (Image)</Typography>
-                
-                 {previewUrl && !selectedFile ? (
-                   <Box sx={{ position: 'relative', border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
-                     <S3Image imageKey={previewUrl} sx={{ width: '100%', maxHeight: 300 }} />
-                     <IconButton size="small" color="error" onClick={() => { setPreviewUrl(null); }} sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'background.paper', '&:hover': { bgcolor: 'error.main', color: 'white' } }}>
-                       <DeleteRounded fontSize="small" />
-                     </IconButton>
-                   </Box>
-                 ) : previewUrl && selectedFile ? (
+
+                {previewUrl && !selectedFile ? (
+                  <Box sx={{ position: 'relative', border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
+                    <S3Image imageKey={previewUrl} sx={{ width: '100%', maxHeight: 300 }} />
+                    <IconButton size="small" color="error" onClick={() => { setPreviewUrl(null); }} sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'background.paper', '&:hover': { bgcolor: 'error.main', color: 'white' } }}>
+                      <DeleteRounded fontSize="small" />
+                    </IconButton>
+                  </Box>
+                ) : previewUrl && selectedFile ? (
                   <Box sx={{ position: 'relative', border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
                     {selectedFile.type.startsWith('image/') ? (
                       <Box component="img" src={previewUrl} sx={{ width: '100%', maxHeight: 200, objectFit: 'cover', display: 'block' }} />
@@ -419,10 +442,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
           <Button onClick={onClose} disabled={loading} sx={{ color: 'text.secondary' }}>
             Cancel
           </Button>
-          <Button 
-            type="submit" 
-            variant="contained" 
-            disabled={loading || dataLoading || !title || (!task && (!teamId || !projectId))}
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={loading || dataLoading || !canSubmit}
             startIcon={loading && <CircularProgress size={16} color="inherit" />}
           >
             {task ? 'Save Changes' : 'Create Task'}

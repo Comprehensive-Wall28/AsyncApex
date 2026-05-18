@@ -69,5 +69,5 @@ export interface StatusStats {
         totalTasks: number;
         closedTasks: number;
         teamMetrics: TeamMetric[];
-    };
+    }
 }

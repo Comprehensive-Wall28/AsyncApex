@@ -86,6 +86,7 @@ export const api = {
   users: {
     getAll: () => client.get('/users'),
     getOne: (id: string) => client.get(`/users/${id}`),
+    getMe: () => client.get(`/users/me`),
   },
 
   auth: {

@@ -23,7 +23,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 @Controller('users')
 @UseGuards(CognitoAuthGuard)
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Get()
   @UseGuards(RolesGuard)
@@ -33,6 +33,14 @@ export class UsersController {
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   findAll() {
     return this.usersService.findAll();
+  }
+
+  @Get('me')
+  @ApiOperation({ summary: 'Get current logged-in user' })
+  @ApiResponse({ status: 200, description: 'Current user object' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  getMe(@Req() req: any) {
+    return this.usersService.findOne(req.user.userId);
   }
 
   @Get(':id')

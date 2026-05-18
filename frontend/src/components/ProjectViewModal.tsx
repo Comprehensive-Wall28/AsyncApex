@@ -23,7 +23,7 @@ interface ProjectViewModalProps {
 }
 
 export const ProjectViewModal: React.FC<ProjectViewModalProps> = ({
-  open, onClose, project, onSave, onDelete, role
+  open, onClose, project, onSave, onDelete
 }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);

@@ -18,7 +18,6 @@ export const NewProject: React.FC = () => {
     // Form state
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
-    const [endDate, setEndDate] = useState('');
 
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');

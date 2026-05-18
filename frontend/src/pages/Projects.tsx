@@ -28,7 +28,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../hooks/useAuth';
 import api from '../api';
-import type { Project, User, Team } from '../api/interface';
+import type { Project, Team } from '../api/interface';
 import { ProjectViewModal } from '../components/ProjectViewModal';
 
 export const Projects: React.FC = () => {
@@ -41,7 +41,6 @@ export const Projects: React.FC = () => {
   const [viewOpen, setViewOpen] = useState(false);
   const navigate = useNavigate();
 
-  const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -49,12 +48,10 @@ export const Projects: React.FC = () => {
     const fetchData = async () => {
       try {
         setIsDataLoading(true);
-        const [u, t, p] = await Promise.all([
-          api.users.getAll(),
+        const [t, p] = await Promise.all([
           api.teams.getAll(),
           api.projects.getAll()
         ]);
-        setUsers(u as any);
         setTeams(t as any);
         setProjects(p as any);
       } catch (err) {

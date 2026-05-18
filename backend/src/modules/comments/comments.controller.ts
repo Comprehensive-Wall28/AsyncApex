@@ -36,8 +36,8 @@ export class CommentsController {
   @ApiOperation({ summary: 'Get all comments for a task', description: 'Any authenticated user.' })
   @ApiParam({ name: 'taskId', description: 'taskId (UUID)' })
   @ApiResponse({ status: 200, description: 'Array of comment objects' })
-  findByTask(@Param('taskId') taskId: string) {
-    return this.commentsService.findByTask(taskId);
+  findByTask(@Param('taskId') taskId: string, @Req() req: any) {
+    return this.commentsService.findByTask(taskId, req.user);
   }
 
   @Patch(':id')

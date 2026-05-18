@@ -11,6 +11,7 @@ Logs
 .log
 npm-debug.log
 pnpm-debug.log*
+backend/lambda-packages
 
 OS
 .DS_Store

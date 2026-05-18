@@ -493,41 +493,38 @@ export class TasksService {
     return result.Attributes;
   }
 
-  private async logStatusChange(
-    taskId: string,
-    changedBy: string,
-    oldStatus: string,
-    newStatus: string,
-  ) {
-    await dynamoDB.send(
-      new PutCommand({
-        TableName: TABLES.ActivityLog,
-        Item: {
-          taskId,
-          timestamp: new Date().toISOString(),
-          changedBy,
-          oldStatus,
-          newStatus,
-        },
-      }),
-    );
-  }
-
   async getActivityLogs(taskId: string, user: RequestUser) {
     // Verify task exists and user has access
     await this.findOne(taskId, user);
 
-    const result = await dynamoDB.send(
-      new QueryCommand({
-        TableName: TABLES.ActivityLog,
-        KeyConditionExpression: 'taskId = :taskId',
-        ExpressionAttributeValues: { ':taskId': taskId },
-        ScanIndexForward: false, // Return newest first
-      }),
-    );
+    let logs: any[] = [];
+    try {
+      const result = await dynamoDB.send(
+        new QueryCommand({
+          TableName: TABLES.ActivityLog,
+          KeyConditionExpression: '#taskId = :taskId',
+          ExpressionAttributeNames: { '#taskId': 'taskId' },
+          ExpressionAttributeValues: { ':taskId': taskId },
+          ScanIndexForward: false, // Return newest first
+        }),
+      );
+      logs = result.Items || [];
+    } catch (err) {
+      // Fallback if ActivityLog isn't keyed in a way that supports Query
+      const result = await dynamoDB.send(
+        new ScanCommand({
+          TableName: TABLES.ActivityLog,
+          FilterExpression: '#taskId = :taskId',
+          ExpressionAttributeNames: { '#taskId': 'taskId' },
+          ExpressionAttributeValues: { ':taskId': taskId },
+        }),
+      );
+      logs = result.Items || [];
+      // Sort newest first
+      logs.sort((a: any, b: any) => String(b.timestamp).localeCompare(String(a.timestamp)));
+    }
 
     // Fetch user details for each log entry to provide names
-    const logs = result.Items || [];
     const logsWithUserInfo = await Promise.all(
       logs.map(async (log) => {
         try {
@@ -546,6 +543,28 @@ export class TasksService {
 
     return logsWithUserInfo;
   }
+
+  private async logStatusChange(
+    taskId: string,
+    changedBy: string,
+    oldStatus: string,
+    newStatus: string,
+  ) {
+    await dynamoDB.send(
+      new PutCommand({
+        TableName: TABLES.ActivityLog,
+        Item: {
+          taskId,
+          timestamp: new Date().toISOString(),
+          eventType: 'STATUS_CHANGED',
+          changedBy,
+          oldStatus,
+          newStatus,
+        },
+      }),
+    );
+  }
+
 
   async getGlobalStats() {
     const result = await dynamoDB.send(new ScanCommand({ TableName: TABLES.Tasks }));

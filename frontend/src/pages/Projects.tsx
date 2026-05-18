@@ -109,7 +109,7 @@ export const Projects: React.FC = () => {
               <CheckCircleRounded sx={{ color: '#000', fontSize: 20 }} />
             </Box>
             <Typography variant="h1" sx={{ fontSize: '2.5rem', fontWeight: 800, color: 'text.primary' }}>
-              Project Planner
+              {isManager ? "Project Planner" : "Projects"}
             </Typography>
           </Box>
         </Box>
@@ -243,7 +243,10 @@ export const Projects: React.FC = () => {
                   borderColor: 'rgba(255,255,255,0.15)'
                 }
               }}>
-                <CardContent sx={{ flexGrow: 1, p: 3 }}>
+                <CardContent onClick={() => {
+                  setSelectedProject(project);
+                  setViewOpen(true)
+                }} sx={{ flexGrow: 1, p: 3 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                     <Typography variant="h5" sx={{ fontSize: '1.25rem', fontWeight: 700, color: 'text.primary' }}>
                       {project.name}

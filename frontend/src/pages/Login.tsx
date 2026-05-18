@@ -8,12 +8,13 @@ import {
   Stack,
   Divider,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { BoltRounded, LockOutlined, FlashOnOutlined } from '@mui/icons-material';
 import api from '../api';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +23,7 @@ export const Login: React.FC = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +37,11 @@ export const Login: React.FC = () => {
         localStorage.setItem('accessToken', response.accessToken);
         localStorage.setItem('refreshToken', response.refreshToken);
       }
-      navigate('/dashboard');
+
+      // 👇 Replace navigate('/dashboard') with this
+      const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
+      navigate(from, { replace: true });
+
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid email or password. Please try again.');
     } finally {

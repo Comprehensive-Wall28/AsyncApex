@@ -1,14 +1,15 @@
 import { Box, Typography, Button, Container, Stack } from '@mui/material';
-import { AddRounded, AssessmentRounded, CheckCircleRounded, TrendingUpRounded } from '@mui/icons-material';
-import { StatCard } from '../components/StatCard';
-import { TaskBoard } from '../components/TaskBoard';
+import { AssessmentRounded } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { chartBoxSx } from '../styles/style';
+import { useState } from 'react';
+import type { Team } from './../api/interface';
 
 export const Teams: React.FC = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+
+  const [team, setTeam] = useState(Team)
 
   if (loading) return null; // Or a spinner
 
@@ -24,50 +25,18 @@ export const Teams: React.FC = () => {
             Welcome back, {firstName}
           </Typography>
           <Typography sx={{ color: 'text.secondary', fontSize: '1.1rem' }}>
-            {isManager ? "Here's the overview for your organization." : "Here are your assigned tasks for this sprint."}
+            {isManager ? "Here's the overview for the teams." : "Here is your team."}
           </Typography>
         </Box>
 
         {isManager && (
           <Stack direction="row" spacing={2}>
-            <Button variant="outlined" startIcon={<AssessmentRounded />} onClick={() => { navigate('/projects/new') }}>
-              New Project
-            </Button>
-            <Button variant="contained" startIcon={<AddRounded />} onClick={() => { }}>
-              New Task
+            <Button variant="outlined" startIcon={<AssessmentRounded />} onClick={() => { navigate('/teams/new') }}>
+              New Team
             </Button>
           </Stack>
         )}
       </Box>
-
-      {/* Quick Stats */}
-      {isManager && (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3, mb: 6 }}>
-          <StatCard title="Active Tasks" value="124" icon={<AssessmentRounded />} trend="+12% from last week" />
-          <StatCard title="Team Progress" value="68%" icon={<TrendingUpRounded />} trend="On track" trendColor="secondary.main" />
-          <StatCard title="Approaching Deadlines" value="12" icon={<CheckCircleRounded />} trend="-3 this sprint" trendColor="error.main" />
-        </Box>
-      )}
-
-      {/* Nexus Kanban Board */}
-      <Box sx={{ mb: 6 }}>
-        <TaskBoard teamId={user?.teamId} role={user?.role || 'employee'} />
-      </Box>
-
-      {/* Monitor Analytics (Manager Only) */}
-      {isManager && (
-        <Box sx={{ mt: 8 }}>
-          <Typography variant="h4" sx={{ mb: 4, fontWeight: 700 }}>Monitor Analytics</Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 4 }}>
-            <Box sx={chartBoxSx}>
-              [Tasks Created vs. Closed Chart Simulation]
-            </Box>
-            <Box sx={chartBoxSx}>
-              [Average Time-to-Close Chart Simulation]
-            </Box>
-          </Box>
-        </Box>
-      )}
     </Container>
   );
 };

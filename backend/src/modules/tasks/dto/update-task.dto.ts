@@ -30,6 +30,16 @@ export class UpdateTaskDto {
   @IsString()
   deadline?: string;
 
+  @ApiPropertyOptional({ example: 'a1b2c3d4-...' })
+  @IsOptional()
+  @IsString()
+  teamId?: string;
+
+  @ApiPropertyOptional({ example: 'a1b2c3d4-...' })
+  @IsOptional()
+  @IsString()
+  projectId?: string;
+
   @ApiPropertyOptional({ example: 'a1b2c3d4-...', description: 'userId of the new assignee' })
   @IsOptional()
   @IsString()

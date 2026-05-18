@@ -42,7 +42,6 @@ export const CollapsibleSidebar: React.FC<SidebarProps> = ({ userName, collapsed
     { label: 'Dashboard', icon: <DashboardRounded />, path: '/dashboard' },
     { label: 'Tasks', icon: <ViewColumnRounded />, path: '/tasks' },
     { label: 'Projects', icon: <FolderOpenRounded />, path: '/projects' },
-    { label: 'Teams', icon: <FolderOpenRounded />, path: '/teams' },
   ];
 
   if (user?.role === 'manager') {

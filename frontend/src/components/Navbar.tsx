@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, Button, Box, Container } from '@mui/material';
 import { BoltRounded } from '@mui/icons-material';
+import { Link as RouterLink } from 'react-router-dom';
 
 export const Navbar: React.FC = () => {
   const navigate = useNavigate();
@@ -63,18 +64,24 @@ export const Navbar: React.FC = () => {
               AsyncApex
             </Typography>
           </Box>
-
           {/* Nav links */}
           <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 0.25 }}>
-            {['Features', 'Documentation', 'Pricing'].map((label) => (
+            {[
+              { label: 'Features', path: '/features' },
+              { label: 'Documentation', path: '/documentation' },
+              { label: 'Pricing', path: '/pricing' },
+            ].map((item) => (
               <Button
-                key={label}
+                key={item.label}
+                component={RouterLink}
+                to={item.path}
                 sx={{
                   color: 'text.secondary',
                   fontWeight: 500,
                   fontSize: '0.875rem',
                   px: 1.75,
                   borderRadius: '9999px',
+                  textTransform: 'none',
                   '&:hover': {
                     color: 'text.primary',
                     bgcolor: 'rgba(255,255,255,0.06)',
@@ -82,7 +89,7 @@ export const Navbar: React.FC = () => {
                   transition: 'all 0.15s ease',
                 }}
               >
-                {label}
+                {item.label}
               </Button>
             ))}
           </Box>

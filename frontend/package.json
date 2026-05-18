@@ -20,6 +20,7 @@
     "@mui/icons-material": "^9.0.1",
     "@mui/material": "^9.0.1",
     "@mui/x-charts": "^9.2.0",
+    "@nestjs/serve-static": "^5.0.5",
     "jwt-decode": "^4.0.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

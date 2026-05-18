@@ -1,42 +1,73 @@
 import { SQSEvent, SQSRecord } from 'aws-lambda';
-import { CognitoIdentityProviderClient, AdminGetUserCommand } from '@aws-sdk/client-cognito-identity-provider';
-import { snsClient } from '../config/aws.config';
-import { PublishCommand } from '@aws-sdk/client-sns';
+import { PutCommand } from '@aws-sdk/lib-dynamodb';
+import { PutMetricDataCommand } from '@aws-sdk/client-cloudwatch';
+import { cloudWatchClient, dynamoDB, TABLES } from '../config/aws.config';
 
-const cognitoClient = new CognitoIdentityProviderClient({
-  region: process.env.COGNITO_REGION || process.env.AWS_REGION || 'us-east-1',
-});
+type AssignmentMessage = {
+  taskId: string;
+  taskTitle: string;
+  assigneeEmail: string;
+  assigneeName?: string;
+  teamId: string;
+};
+
+function parseSnsOrRawBody(body: string): any {
+  const parsed = JSON.parse(body);
+  // SNS -> SQS subscription typically wraps the message in an SNS envelope.
+  if (parsed && typeof parsed === 'object' && typeof parsed.Message === 'string') {
+    return JSON.parse(parsed.Message);
+  }
+  return parsed;
+}
 
 async function processRecord(record: SQSRecord): Promise<void> {
-  const payload = JSON.parse(record.body) as {
-    taskId: string;
-    assigneeId: string;
-    title: string;
-  };
+  const msg = parseSnsOrRawBody(record.body) as Partial<AssignmentMessage>;
 
-  const userPool = process.env.COGNITO_USER_POOL_ID!;
-  const user = await cognitoClient.send(
-    new AdminGetUserCommand({ UserPoolId: userPool, Username: payload.assigneeId }),
+  if (!msg.taskId || !msg.taskTitle || !msg.assigneeEmail || !msg.teamId) {
+    console.warn('Skipping invalid assignment message:', record.body);
+    return;
+  }
+
+  const timestamp = new Date().toISOString();
+
+  // 1) Activity log entry (audit trail for async processing)
+  await dynamoDB.send(
+    new PutCommand({
+      TableName: TABLES.ActivityLog,
+      Item: {
+        taskId: msg.taskId,
+        timestamp,
+        eventType: 'TASK_ASSIGNED',
+        teamId: msg.teamId,
+        assigneeEmail: msg.assigneeEmail,
+        assigneeName: msg.assigneeName,
+        taskTitle: msg.taskTitle,
+      },
+    }),
   );
 
-  const emailAttr = user.UserAttributes?.find((a) => a.Name === 'email');
-  const email = emailAttr?.Value;
-
-  if (email && process.env.SNS_TASK_ASSIGNMENT_TOPIC_ARN) {
-    await snsClient.send(
-      new PublishCommand({
-        TopicArn: process.env.SNS_TASK_ASSIGNMENT_TOPIC_ARN,
-        Message: `You have been assigned task "${payload.title}" (ID: ${payload.taskId}).`,
-        Subject: 'New Task Assignment',
-        MessageAttributes: {
-          email: { DataType: 'String', StringValue: email },
+  // 2) Custom CloudWatch metric
+  await cloudWatchClient.send(
+    new PutMetricDataCommand({
+      Namespace: process.env.CLOUDWATCH_METRICS_NAMESPACE || 'MiniJira',
+      MetricData: [
+        {
+          MetricName: 'TasksAssignedPerTeam',
+          Dimensions: [{ Name: 'TeamId', Value: msg.teamId }],
+          Timestamp: new Date(timestamp),
+          Unit: 'Count',
+          Value: 1,
         },
-      }),
-    );
-    console.log(`Notified ${email} for task ${payload.taskId}`);
-  }
+      ],
+    }),
+  );
 }
 
 export const handler = async (event: SQSEvent): Promise<void> => {
-  await Promise.all(event.Records.map(processRecord));
+  const results = await Promise.allSettled(event.Records.map(processRecord));
+  const rejected = results.filter((r) => r.status === 'rejected');
+  if (rejected.length > 0) {
+    // Fail the batch so SQS retries (at-least-once). Make handlers idempotent in prod.
+    throw new Error(`Failed to process ${rejected.length}/${results.length} assignment messages`);
+  }
 };

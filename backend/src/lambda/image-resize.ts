@@ -2,6 +2,7 @@ import { S3Event } from 'aws-lambda';
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { s3Client, BUCKETS } from '../config/aws.config';
 import { Readable } from 'stream';
+import Jimp = require('jimp');
 
 async function streamToBuffer(stream: Readable): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -24,13 +25,12 @@ export const handler = async (event: S3Event): Promise<void> => {
 
       const imageBuffer = await streamToBuffer(getResult.Body as Readable);
 
-      // Sharp would normally be used here, but it requires a native build.
-      // In production, install sharp as a Lambda layer:
-      //   const sharp = require('sharp');
-      //   const resized = await sharp(imageBuffer).resize(800).jpeg({ quality: 80 }).toBuffer();
-      const resized = imageBuffer;
+      const image = await Jimp.read(imageBuffer);
+      // Create a thumbnail (preserve aspect ratio)
+      image.resize(320, Jimp.AUTO).quality(80);
+      const resized = await image.getBufferAsync(Jimp.MIME_JPEG);
 
-      const destKey = key.replace('attachments/', 'resized/').replace('uploads/', 'resized/');
+      const destKey = `thumbnails/${key}`;
       await s3Client.send(
         new PutObjectCommand({
           Bucket: BUCKETS.resized,

@@ -57,14 +57,14 @@ export class TasksController {
       type: 'object',
       required: ['title', 'priority', 'teamId', 'projectId'],
       properties: {
-        title:       { type: 'string', example: 'Fix login bug' },
+        title: { type: 'string', example: 'Fix login bug' },
         description: { type: 'string', example: 'Broken on mobile' },
-        priority:    { type: 'string', enum: ['low', 'medium', 'high'] },
-        deadline:    { type: 'string', example: '2025-12-31T23:59:59.000Z' },
-        assigneeId:  { type: 'string', example: 'uuid' },
-        teamId:      { type: 'string', example: 'uuid' },
-        projectId:   { type: 'string', example: 'uuid' },
-        file:        { type: 'string', format: 'binary', description: 'Optional image attachment' },
+        priority: { type: 'string', enum: ['low', 'medium', 'high'] },
+        deadline: { type: 'string', example: '2025-12-31T23:59:59.000Z' },
+        assigneeId: { type: 'string', example: 'uuid' },
+        teamId: { type: 'string', example: 'uuid' },
+        projectId: { type: 'string', example: 'uuid' },
+        file: { type: 'string', format: 'binary', description: 'Optional image attachment' },
       },
     },
   })
@@ -101,7 +101,11 @@ export class TasksController {
   }
 
   @Get('by-user/:userId')
-  @ApiOperation({ summary: "Get tasks for a specific user", description: 'Managers may view any user; employees may view only their own tasks and only within their own team.' })
+  @ApiOperation({
+    summary: 'Get tasks for a specific user',
+    description:
+      'Managers may view any user; employees may view only their own tasks and only within their own team.',
+  })
   @ApiParam({ name: 'userId', description: 'userId (UUID) to fetch tasks for' })
   @ApiResponse({ status: 200, description: 'Array of task objects' })
   @ApiResponse({ status: 403, description: 'Access denied' })
@@ -144,19 +148,23 @@ export class TasksController {
     description:
       'Managers can update any task. Employees can only update tasks assigned to them.\n\n' +
       'Include a `file` field to replace the attached image (the previous version is retained in S3).\n\n' +
-      'Setting `status` to `done` deletes the image from S3 and removes `imageKey` from the task.',
+      'Task images are deleted only when the task is deleted (not when the status changes).',
   })
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
-        title:       { type: 'string' },
+        title: { type: 'string' },
         description: { type: 'string' },
-        status:      { type: 'string', enum: ['todo', 'in-progress', 'in-review', 'done'], description: 'Setting to `done` deletes the attached image' },
-        priority:    { type: 'string', enum: ['low', 'medium', 'high'] },
-        deadline:    { type: 'string', example: '2025-12-31T23:59:59.000Z' },
-        assigneeId:  { type: 'string', example: 'uuid' },
-        file:        { type: 'string', format: 'binary', description: 'Replaces the current image attachment' },
+        status: { type: 'string', enum: ['todo', 'in-progress', 'in-review', 'done'] },
+        priority: { type: 'string', enum: ['low', 'medium', 'high'] },
+        deadline: { type: 'string', example: '2025-12-31T23:59:59.000Z' },
+        assigneeId: { type: 'string', example: 'uuid' },
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Replaces the current image attachment',
+        },
       },
     },
   })
@@ -225,7 +233,7 @@ export class TasksController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Approve task as complete',
-    description: 'Manager only. Move task status from `in-review` to `done`. Automatically deletes attached image from S3.',
+    description: 'Manager only. Move task status from `in-review` to `done`.',
   })
   @ApiParam({ name: 'id', description: 'taskId (UUID)' })
   @ApiResponse({ status: 200, description: 'Task status changed to done' })

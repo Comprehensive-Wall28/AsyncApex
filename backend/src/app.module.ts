@@ -11,6 +11,7 @@ import { CommentsModule } from './modules/comments/comments.module';
 import { S3Module } from './modules/s3/s3.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AppController } from './app.controller';
+import { CloudWatchModule } from './modules/cloudwatch/cloudwatch.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { AppController } from './app.controller';
     CommentsModule,
     S3Module,
     NotificationsModule,
+    CloudWatchModule,
   ],
   controllers: [AppController],
 })

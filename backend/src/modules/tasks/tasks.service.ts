@@ -54,27 +54,64 @@ export class TasksService {
       assignee = assigneeResult.Item;
     }
 
-    const teamResult = await dynamoDB.send(
-      new GetCommand({ TableName: TABLES.Teams, Key: { teamId: dto.teamId } }),
-    );
-    if (!teamResult.Item) throw new NotFoundException('Team not found');
+    if (hasAssignee === hasTeam) {
+      throw new BadRequestException(
+        'You must provide either assigneeId or teamId, but not both.',
+      );
+    }
+
+    let assignee: any = null;
+
+    if (dto.assigneeId) {
+      const assigneeResult = await dynamoDB.send(
+        new GetCommand({
+          TableName: TABLES.Users,
+          Key: { userId: dto.assigneeId },
+        }),
+      );
+
+      if (!assigneeResult.Item) {
+        throw new NotFoundException('Assignee not found');
+      }
+
+      assignee = assigneeResult.Item;
+    }
+
+    if (dto.teamId) {
+      const teamResult = await dynamoDB.send(
+        new GetCommand({
+          TableName: TABLES.Teams,
+          Key: { teamId: dto.teamId },
+        }),
+      );
+
+      if (!teamResult.Item) {
+        throw new NotFoundException('Team not found');
+      }
+    }
 
     const projectResult = await dynamoDB.send(
-      new GetCommand({ TableName: TABLES.Projects, Key: { projectId: dto.projectId } }),
+      new GetCommand({
+        TableName: TABLES.Projects,
+        Key: { projectId: dto.projectId },
+      }),
     );
-    if (!projectResult.Item) throw new NotFoundException('Project not found');
 
+    if (!projectResult.Item) {
+      throw new NotFoundException('Project not found');
     if (assignee && assignee['teamId'] !== dto.teamId) {
       throw new BadRequestException('Assignee does not belong to this team');
     }
 
     let imageKey: string | undefined;
+
     if (file) {
       const uploaded = await this.s3Service.upload(file);
       imageKey = uploaded.key;
     }
 
     const now = new Date().toISOString();
+
     const task = {
       taskId: uuidv4(),
       title: dto.title,
@@ -91,7 +128,12 @@ export class TasksService {
       updatedAt: now,
     };
 
-    await dynamoDB.send(new PutCommand({ TableName: TABLES.Tasks, Item: task }));
+    await dynamoDB.send(
+      new PutCommand({
+        TableName: TABLES.Tasks,
+        Item: task,
+      }),
+    );
 
     await this.cloudWatchService.publishTaskCreated(dto.teamId);
 
@@ -141,18 +183,36 @@ export class TasksService {
   }
 
   async getTasksByUser(targetUserId: string, requester: RequestUser) {
-    // Managers can view any user's tasks. Employees can only view their own tasks.
     if (requester.role !== 'manager' && requester.userId !== targetUserId) {
       throw new ForbiddenException('Access denied to requested user tasks');
     }
 
     if (requester.role !== 'manager') {
+      const assignedToMe = await this.queryByIndex(
+        'assigneeId-index',
+        'assigneeId',
+        targetUserId,
+        {},
+      );
+
       if (!requester.teamId) {
-        throw new ForbiddenException('User is not assigned to a team');
+        return assignedToMe;
       }
-      // Employee scope is always restricted to their own team.
-      return this.queryByIndex('assigneeId-index', 'assigneeId', targetUserId, {
-        teamId: requester.teamId,
+
+      const assignedToTeam = await this.queryByIndex(
+        'teamId-index',
+        'teamId',
+        requester.teamId,
+        {},
+      );
+
+      const merged = [...assignedToMe, ...assignedToTeam];
+      const seen = new Set();
+
+      return merged.filter((task) => {
+        if (seen.has(task.taskId)) return false;
+        seen.add(task.taskId);
+        return true;
       });
     }
 
@@ -172,11 +232,39 @@ export class TasksService {
     return task;
   }
 
+  private async checkHelp(user: RequestUser, taskId: string) {
+    const task = await this.findOne(taskId, user);
+
+    const isManager = user.role === 'manager';
+    const isAssignedUser = task.assigneeId === user.userId;
+    const isInAssignedTeam = task.teamId && user.teamId === task.teamId;
+  }
+
+  private isManager(user: RequestUser) {
+    return user.role === 'manager';
+  }
+
+  private async isAssignedUser(user: RequestUser, taskId: string) {
+    const task = await this.findOne(taskId, user);
+    return task.assigneeId === user.userId;
+  }
+
+  private async isInAssignedTeam(user: RequestUser, taskId: string) {
+    const task = await this.findOne(taskId, user);
+    return !!task.teamId && user.teamId === task.teamId;
+  }
+
   async update(taskId: string, dto: UpdateTaskDto, user: RequestUser, file?: Express.Multer.File) {
     const task = await this.findOne(taskId, user);
 
-    if (user.role !== 'manager' && task['assigneeId'] !== user.userId) {
-      throw new ForbiddenException('Only the assigned employee or a manager can update this task');
+    if (
+      !this.isManager(user) &&
+      !(await this.isAssignedUser(user, taskId)) &&
+      !(await this.isInAssignedTeam(user, taskId))
+    ) {
+      throw new ForbiddenException(
+        'Only the assigned employee, assigned team members, or a manager can update this task',
+      );
     }
 
     const isReassigning = dto.assigneeId !== undefined && dto.assigneeId !== task['assigneeId'];
@@ -222,7 +310,8 @@ export class TasksService {
       setUpdates.map(([, v], i) => [`:u${i}`, v]),
     );
 
-    const expression = 'SET ' + setUpdates.map((_, i) => `#u${i} = :u${i}`).join(', ');
+    let expression = 'SET ' + setUpdates.map((_, i) => `#u${i} = :u${i}`).join(', ');
+
 
     const result = await dynamoDB.send(
       new UpdateCommand({
@@ -275,7 +364,6 @@ export class TasksService {
     const allowed: Record<string, string> = {
       'todo': 'in-progress',
       'in-progress': 'in-review',
-      'in-review': 'done',
     };
 
     if (allowed[from] !== to) {
@@ -356,8 +444,14 @@ export class TasksService {
       throw new BadRequestException(`Task status is ${task['status']}, not 'todo'. Cannot start a task that's already in progress.`);
     }
 
-    if (user.role !== 'manager' && task['assigneeId'] !== user.userId) {
-      throw new ForbiddenException('Only the assigned employee can start this task');
+    if (
+      !this.isManager(user) &&
+      !(await this.isAssignedUser(user, taskId)) &&
+      !(await this.isInAssignedTeam(user, taskId))
+    ) {
+      throw new ForbiddenException(
+        'Only the assigned employee, assigned team members, or a manager can start this task',
+      );
     }
 
     const result = await dynamoDB.send(
@@ -382,8 +476,14 @@ export class TasksService {
       throw new BadRequestException(`Task status is ${task['status']}, not 'in-progress'. Only in-progress tasks can be submitted for review.`);
     }
 
-    if (user.role !== 'manager' && task['assigneeId'] !== user.userId) {
-      throw new ForbiddenException('Only the assigned employee can submit this task for review');
+    if (
+      !this.isManager(user) &&
+      !(await this.isAssignedUser(user, taskId)) &&
+      !(await this.isInAssignedTeam(user, taskId))
+    ) {
+      throw new ForbiddenException(
+        'Only the assigned employee, assigned team members, or a manager can submit this task for review',
+      );
     }
 
     const result = await dynamoDB.send(
@@ -405,6 +505,8 @@ export class TasksService {
     if (user.role !== 'manager') {
       throw new ForbiddenException('Only managers can approve tasks');
     }
+
+    console.log(`Approving task ${taskId} by manager ${user.userId}`);
 
     const task = await this.findOne(taskId, user);
 
@@ -457,9 +559,10 @@ export class TasksService {
   }
 
   async getActivityLogs(taskId: string, user: RequestUser) {
-    // Ensures server-side team isolation (employees can't access other-team tasks)
+    // Verify task exists and user has access
     await this.findOne(taskId, user);
 
+    let logs: any[] = [];
     try {
       const result = await dynamoDB.send(
         new QueryCommand({
@@ -467,10 +570,10 @@ export class TasksService {
           KeyConditionExpression: '#taskId = :taskId',
           ExpressionAttributeNames: { '#taskId': 'taskId' },
           ExpressionAttributeValues: { ':taskId': taskId },
-          ScanIndexForward: true,
+          ScanIndexForward: false, // Return newest first
         }),
       );
-      return result.Items || [];
+      logs = result.Items || [];
     } catch (err) {
       // Fallback if ActivityLog isn't keyed in a way that supports Query
       const result = await dynamoDB.send(
@@ -481,10 +584,29 @@ export class TasksService {
           ExpressionAttributeValues: { ':taskId': taskId },
         }),
       );
-      const items = result.Items || [];
-      items.sort((a: any, b: any) => String(a.timestamp).localeCompare(String(b.timestamp)));
-      return items;
+      logs = result.Items || [];
+      // Sort newest first
+      logs.sort((a: any, b: any) => String(b.timestamp).localeCompare(String(a.timestamp)));
     }
+
+    // Fetch user details for each log entry to provide names
+    const logsWithUserInfo = await Promise.all(
+      logs.map(async (log) => {
+        try {
+          const userResult = await dynamoDB.send(
+            new GetCommand({ TableName: TABLES.Users, Key: { userId: log.changedBy } }),
+          );
+          return {
+            ...log,
+            userName: userResult.Item ? userResult.Item['name'] : 'Unknown User',
+          };
+        } catch (err) {
+          return { ...log, userName: 'Unknown User' };
+        }
+      }),
+    );
+
+    return logsWithUserInfo;
   }
 
   private async logStatusChange(
@@ -506,5 +628,40 @@ export class TasksService {
         },
       }),
     );
+  }
+
+
+  async getGlobalStats() {
+    const result = await dynamoDB.send(new ScanCommand({ TableName: TABLES.Tasks }));
+    const tasks = result.Items || [];
+
+    const totalTasks = tasks.length;
+    const closedTasks = tasks.filter((t) => t['status'] === 'done').length;
+
+    // Group tasks by team for time-to-close metrics
+    const teamStats: Record<string, { totalClosed: number; totalDuration: number }> = {};
+
+    tasks.forEach((task) => {
+      if (task['status'] === 'done' && task['createdAt'] && task['updatedAt']) {
+        const start = new Date(task['createdAt']).getTime();
+        const end = new Date(task['updatedAt']).getTime();
+        const durationHours = (end - start) / (1000 * 60 * 60);
+
+        if (durationHours > 0) {
+          const teamId = task['teamId'];
+          if (!teamStats[teamId]) {
+            teamStats[teamId] = { totalClosed: 0, totalDuration: 0 };
+          }
+          teamStats[teamId].totalClosed += 1;
+          teamStats[teamId].totalDuration += durationHours;
+        }
+      }
+    });
+
+    return {
+      totalTasks,
+      closedTasks,
+      teamStats,
+    };
   }
 }

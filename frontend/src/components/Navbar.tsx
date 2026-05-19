@@ -1,89 +1,121 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, Button, Box, Container } from '@mui/material';
 import { BoltRounded } from '@mui/icons-material';
+import { Link as RouterLink } from 'react-router-dom';
 
 export const Navbar: React.FC = () => {
+  const navigate = useNavigate();
+
   return (
     <AppBar
       position="fixed"
       elevation={0}
       sx={{
+        // ── Floating pill geometry ─────────────────────────────────────────
         top: 16,
         left: '50%',
         transform: 'translateX(-50%)',
         width: 'calc(100% - 48px)',
         maxWidth: '1100px',
-        zIndex: 1100,
         borderRadius: '9999px',
-        backgroundColor: 'rgba(13, 13, 26, 0.75)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        border: '1px solid rgba(139, 92, 246, 0.18)',
-        boxShadow: '0 4px 30px rgba(0,0,0,0.4), inset 0 1px 0 rgba(139,92,246,0.1)',
+        // ── Glassmorphism surface ──────────────────────────────────────────
+        backgroundColor: 'rgba(13, 17, 26, 0.92)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        border: '1px solid rgba(148, 163, 184, 0.35)',
+        boxShadow: '0 0 0 1px rgba(96,165,250,0.08), 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
+        // ── Override theme AppBar defaults for this component ──────────────
+        zIndex: 1100,
       }}
     >
       <Container maxWidth={false} sx={{ px: { xs: 2, md: 3 } }}>
-        <Toolbar disableGutters sx={{ justifyContent: 'space-between', minHeight: { xs: 56, md: 60 } }}>
+        <Toolbar disableGutters sx={{ justifyContent: 'space-between', minHeight: { xs: 52, md: 56 } }}>
+
           {/* Logo */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box
+            sx={{ display: 'flex', alignItems: 'center', gap: 1.25, cursor: 'pointer' }}
+            onClick={() => navigate('/')}
+          >
             <Box
               sx={{
-                width: 32,
-                height: 32,
+                width: 30,
+                height: 30,
                 borderRadius: '8px',
-                background: 'linear-gradient(135deg, #7C3AED 0%, #06B6D4 100%)',
+                background: 'rgba(255,255,255,0.1)',
+                border: '1px solid rgba(255,255,255,0.15)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 0 12px rgba(124, 58, 237, 0.5)',
               }}
             >
-              <BoltRounded sx={{ color: '#fff', fontSize: 18 }} />
+              <BoltRounded sx={{ color: '#ffffff', fontSize: 18 }} />
             </Box>
             <Typography
               variant="h6"
               noWrap
               sx={{
-                fontWeight: 800,
-                letterSpacing: '-0.03em',
-                fontSize: '1.15rem',
-                background: 'linear-gradient(90deg, #F1F0FF 0%, #C4B5FD 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
+                fontWeight: 700,
+                letterSpacing: '-0.02em',
+                fontSize: '1.05rem',
+                color: 'text.primary',
               }}
             >
               AsyncApex
             </Typography>
           </Box>
-
           {/* Nav links */}
-          <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 0.5 }}>
-            {['Features', 'Documentation', 'Pricing'].map((label) => (
+          <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 0.25 }}>
+            {[
+              { label: 'Features', path: '/features' },
+              { label: 'Documentation', path: '/documentation' },
+              { label: 'Pricing', path: '/pricing' },
+            ].map((item) => (
               <Button
-                key={label}
+                key={item.label}
+                component={RouterLink}
+                to={item.path}
                 sx={{
                   color: 'text.secondary',
                   fontWeight: 500,
                   fontSize: '0.875rem',
-                  px: 2,
-                  '&:hover': { color: 'text.primary', bgcolor: 'rgba(139,92,246,0.08)' },
+                  px: 1.75,
+                  borderRadius: '9999px',
+                  textTransform: 'none',
+                  '&:hover': {
+                    color: 'text.primary',
+                    bgcolor: 'rgba(255,255,255,0.06)',
+                  },
                   transition: 'all 0.15s ease',
                 }}
               >
-                {label}
+                {item.label}
               </Button>
             ))}
           </Box>
 
           {/* CTA */}
-          <Button
-            variant="contained"
-            color="primary"
-            size="small"
-            sx={{ fontWeight: 700, px: 2.5, py: 1, fontSize: '0.875rem' }}
-          >
-            Get Started
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              variant="outlined"
+              color="primary"
+              size="small"
+              onClick={() => navigate('/login')}
+              sx={{ px: 2.5, borderRadius: '9999px', fontSize: '0.85rem' }}
+            >
+              Log in
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              size="small"
+              onClick={() => navigate('/role-selection')}
+              sx={{ px: 2.5, borderRadius: '9999px', fontSize: '0.85rem' }}
+            >
+              Get Started
+            </Button>
+          </Box>
+
         </Toolbar>
       </Container>
     </AppBar>

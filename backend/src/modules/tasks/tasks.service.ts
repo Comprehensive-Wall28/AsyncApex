@@ -511,6 +511,12 @@ export class TasksService {
     oldStatus: string,
     newStatus: string,
   ) {
+    // Fetch the user's name
+    const userResult = await dynamoDB.send(
+      new GetCommand({ TableName: TABLES.Users, Key: { userId: changedBy } }),
+    );
+    const userName = userResult.Item?.name || 'Unknown';
+
     await dynamoDB.send(
       new PutCommand({
         TableName: TABLES.ActivityLog,
@@ -518,6 +524,7 @@ export class TasksService {
           taskId,
           timestamp: new Date().toISOString(),
           changedBy,
+          userName,  // 👈 save the name
           oldStatus,
           newStatus,
         },

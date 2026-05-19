@@ -69,9 +69,9 @@ export class CommentsService {
     const result = await dynamoDB.send(
       new ScanCommand({
         TableName: TABLES.Comments,
-        FilterExpression: '#tid = :taskId AND #teamId = :teamId',
-        ExpressionAttributeNames: { '#tid': 'taskId', '#teamId': 'teamId' },
-        ExpressionAttributeValues: { ':taskId': taskId, ':teamId': task['teamId'] },
+        FilterExpression: '#tid = :taskId',
+        ExpressionAttributeNames: { '#tid': 'taskId' },
+        ExpressionAttributeValues: { ':taskId': taskId },
       }),
     );
     return result.Items || [];

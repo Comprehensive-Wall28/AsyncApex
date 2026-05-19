@@ -22,7 +22,7 @@ import { CognitoAuthGuard } from '../../common/guards/cognito-auth.guard';
 @Controller('comments')
 @UseGuards(CognitoAuthGuard)
 export class CommentsController {
-  constructor(private readonly commentsService: CommentsService) {}
+  constructor(private readonly commentsService: CommentsService) { }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -37,6 +37,7 @@ export class CommentsController {
   @ApiParam({ name: 'taskId', description: 'taskId (UUID)' })
   @ApiResponse({ status: 200, description: 'Array of comment objects' })
   findByTask(@Param('taskId') taskId: string, @Req() req: any) {
+    console.log("GET /comments/by-task/:taskId called with taskId:", taskId);
     return this.commentsService.findByTask(taskId, req.user);
   }
 

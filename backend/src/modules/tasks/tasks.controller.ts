@@ -38,7 +38,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 @Controller('tasks')
 @UseGuards(CognitoAuthGuard)
 export class TasksController {
-  constructor(private readonly tasksService: TasksService) {}
+  constructor(private readonly tasksService: TasksService) { }
 
   @Post()
   @UseGuards(RolesGuard)
@@ -55,15 +55,15 @@ export class TasksController {
   @ApiBody({
     schema: {
       type: 'object',
-      required: ['title', 'priority', 'teamId', 'projectId'],
+      required: ['title', 'priority', 'projectId'],
       properties: {
         title: { type: 'string', example: 'Fix login bug' },
         description: { type: 'string', example: 'Broken on mobile' },
         priority: { type: 'string', enum: ['low', 'medium', 'high'] },
-        deadline: { type: 'string', example: '2025-12-31T23:59:59.000Z' },
-        assigneeId: { type: 'string', example: 'uuid' },
+        deadline: { type: 'string', example: '2027-12-31T23:59:59.000Z' },
+        assigneeId: { type: 'string', example: '44283428-3081-7051-c985-58a93c4c055a' },
         teamId: { type: 'string', example: 'uuid' },
-        projectId: { type: 'string', example: 'uuid' },
+        projectId: { type: 'string', example: '35f0cd2e-2cf3-4a65-aae4-6ba9bf7d6b90' },
         file: { type: 'string', format: 'binary', description: 'Optional image attachment' },
       },
     },

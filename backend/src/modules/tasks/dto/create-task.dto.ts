@@ -1,13 +1,24 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, ValidationArguments, ValidatorConstraint, ValidatorConstraintInterface } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  Validate,
+  ValidationArguments,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+} from 'class-validator';
 
 @ValidatorConstraint({ name: 'ExactlyOneAssignment', async: false })
 class ExactlyOneAssignment implements ValidatorConstraintInterface {
   validate(_: any, args: ValidationArguments) {
     const obj = args.object as any;
 
-    const hasAssignee = !!obj.assigneeId;
-    const hasTeam = !!obj.teamId;
+    const hasAssignee =
+      typeof obj.assigneeId === 'string' && obj.assigneeId.trim().length > 0;
+
+    const hasTeam =
+      typeof obj.teamId === 'string' && obj.teamId.trim().length > 0;
 
     return hasAssignee !== hasTeam;
   }
@@ -31,23 +42,35 @@ export class CreateTaskDto {
   @IsEnum(['low', 'medium', 'high'])
   priority: 'low' | 'medium' | 'high';
 
-  @ApiPropertyOptional({ example: '2025-12-31T23:59:59.000Z', description: 'ISO 8601 deadline' })
+  @ApiPropertyOptional({
+    example: '2025-12-31T23:59:59.000Z',
+    description: 'ISO 8601 deadline',
+  })
   @IsOptional()
   @IsString()
   deadline?: string;
 
-  @ApiPropertyOptional({ example: 'a1b2c3d4-...', description: 'userId of the assignee' })
+  @ApiPropertyOptional({
+    example: 'a1b2c3d4-...',
+    description: 'userId of the assignee',
+  })
   @IsOptional()
   @IsString()
   assigneeId?: string;
 
-  @ApiProperty({ example: 'a1b2c3d4-...', description: 'teamId the task belongs to' })
-  @IsString()
+  @ApiPropertyOptional({
+    example: 'a1b2c3d4-...',
+    description: 'teamId the task belongs to',
+  })
   @IsOptional()
+  @IsString()
   teamId?: string;
 
-  @ApiProperty({ example: 'a1b2c3d4-...', description: 'projectId the task belongs to' })
+  @ApiProperty({
+    example: 'a1b2c3d4-...',
+    description: 'projectId the task belongs to',
+  })
   @IsString()
+  @Validate(ExactlyOneAssignment)
   projectId: string;
-
 }

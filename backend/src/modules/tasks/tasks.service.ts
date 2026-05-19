@@ -47,25 +47,19 @@ export class TasksService {
   ) { }
 
   async create(dto: CreateTaskDto, user: RequestUser, file?: Express.Multer.File) {
-    const assigneeResult = await dynamoDB.send(
+    const assigneeResult = dto.assigneeId ? await dynamoDB.send(
       new GetCommand({ TableName: TABLES.Users, Key: { userId: dto.assigneeId } }),
-    );
-    if (!assigneeResult.Item) throw new NotFoundException('Assignee not found');
-    const assignee = assigneeResult.Item;
-
-    const teamResult = await dynamoDB.send(
+    ) : null;
+    if (dto.assigneeId && !assigneeResult?.Item) throw new NotFoundException('Assignee not found');
+    const assignee = assigneeResult?.Item;
+    const teamResult = dto.teamId ? await dynamoDB.send(
       new GetCommand({ TableName: TABLES.Teams, Key: { teamId: dto.teamId } }),
-    );
-    if (!teamResult.Item) throw new NotFoundException('Team not found');
+    ) : null;
 
     const projectResult = await dynamoDB.send(
       new GetCommand({ TableName: TABLES.Projects, Key: { projectId: dto.projectId } }),
     );
     if (!projectResult.Item) throw new NotFoundException('Project not found');
-
-    if (assignee['teamId'] !== dto.teamId) {
-      throw new BadRequestException('Assignee does not belong to this team');
-    }
 
     let imageKey: string | undefined;
     if (file) {
@@ -81,8 +75,8 @@ export class TasksService {
       status: 'todo' as const,
       priority: dto.priority,
       deadline: dto.deadline,
-      assigneeId: dto.assigneeId,
-      teamId: dto.teamId,
+      ...(dto.assigneeId?.trim() ? { assigneeId: dto.assigneeId.trim() } : {}),
+      ...(dto.teamId?.trim() ? { teamId: dto.teamId.trim() } : {}),
       projectId: dto.projectId,
       ...(imageKey ? { imageKey } : {}),
       createdBy: user.userId,

@@ -107,11 +107,13 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
 
   const fetchLogs = async (taskId: string) => {
     try {
-      const data = await api.tasks.getLogs(taskId);
-      setLogs(data as any);
+      const response = await api.tasks.getLogs(taskId) as any;
+      const data = response.data ?? response;
+      setLogs(Array.isArray(data) ? data : []);
+      console.log("1")
     } catch (err) {
-      const fail = 'Failed to fetch logs '
-      toast.error(fail + err)
+      const fail = 'Failed to fetch logs ';
+      toast.error(fail + err);
       console.error(fail, err);
     }
   };
@@ -120,15 +122,12 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
     try {
       setCommentsLoading(true);
       const data = await api.comments.getByTask(taskId);
-      console.log("1")
       // Sort comments by date ascending (oldest first)
       const sorted = (data as Comment[]).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
       setComments(sorted);
     } catch (err) {
       const fail = 'Failed to fetch comments '
       console.error('Failed to fetch comments', err);
-      console.error('Response data:', err.response?.data); // 👈 actual backend error message
-      console.error('Status:', err.response?.status);      // 👈 the status code
       toast.error('Failed to fetch comments ' + err);
       toast.error(fail + err)
       console.error(fail, err);

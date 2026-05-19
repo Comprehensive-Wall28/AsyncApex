@@ -19,6 +19,7 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
 import { S3Service } from '../s3/s3.service';
+import { CloudWatchService } from '../cloudwatch/cloudwatch.service';
 import { v4 as uuidv4 } from 'uuid';
 
 interface RequestUser {
@@ -44,6 +45,7 @@ export class TasksService {
     private readonly notificationsService: NotificationsService,
     private readonly usersService: UsersService,
     private readonly s3Service: S3Service,
+    private readonly cloudWatchService: CloudWatchService,
   ) {}
 
   async create(dto: CreateTaskDto, user: RequestUser, file?: Express.Multer.File) {
@@ -92,6 +94,8 @@ export class TasksService {
 
     await dynamoDB.send(new PutCommand({ TableName: TABLES.Tasks, Item: task }));
 
+    await this.cloudWatchService.publishTaskCreated(dto.teamId);
+
     try {
       await this.notificationsService.publishTaskAssignment({
         taskId: task.taskId,
@@ -100,6 +104,7 @@ export class TasksService {
         assigneeName: assignee['name'],
         teamId: dto.teamId,
       });
+      await this.cloudWatchService.publishTaskAssigned(dto.teamId);
     } catch (err) {
       this.logger.warn(`Failed to send assignment notification: ${err}`);
     }
@@ -401,6 +406,9 @@ export class TasksService {
     );
 
     await this.logStatusChange(taskId, user.userId, 'in-review', 'done');
+    if (task['teamId']) {
+      await this.cloudWatchService.publishTaskClosed(task['teamId'] as string);
+    }
     return result.Attributes;
   }
 

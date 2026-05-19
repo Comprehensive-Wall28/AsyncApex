@@ -17,7 +17,6 @@ import { dynamoDB, TABLES } from '../../config/aws.config';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { NotificationsService } from '../notifications/notifications.service';
-import { UsersService } from '../users/users.service';
 import { S3Service } from '../s3/s3.service';
 import { CloudWatchService } from '../cloudwatch/cloudwatch.service';
 import { v4 as uuidv4 } from 'uuid';
@@ -35,25 +34,25 @@ interface TaskFilters {
   projectId?: string;
 }
 
-const STATUS_ORDER = ['todo', 'in-progress', 'in-review', 'done'];
-
 @Injectable()
 export class TasksService {
   private readonly logger = new Logger(TasksService.name);
 
   constructor(
     private readonly notificationsService: NotificationsService,
-    private readonly usersService: UsersService,
     private readonly s3Service: S3Service,
     private readonly cloudWatchService: CloudWatchService,
   ) {}
 
   async create(dto: CreateTaskDto, user: RequestUser, file?: Express.Multer.File) {
-    const assigneeResult = await dynamoDB.send(
-      new GetCommand({ TableName: TABLES.Users, Key: { userId: dto.assigneeId } }),
-    );
-    if (!assigneeResult.Item) throw new NotFoundException('Assignee not found');
-    const assignee = assigneeResult.Item;
+    let assignee: Record<string, any> | undefined;
+    if (dto.assigneeId) {
+      const assigneeResult = await dynamoDB.send(
+        new GetCommand({ TableName: TABLES.Users, Key: { userId: dto.assigneeId } }),
+      );
+      if (!assigneeResult.Item) throw new NotFoundException('Assignee not found');
+      assignee = assigneeResult.Item;
+    }
 
     const teamResult = await dynamoDB.send(
       new GetCommand({ TableName: TABLES.Teams, Key: { teamId: dto.teamId } }),
@@ -65,7 +64,7 @@ export class TasksService {
     );
     if (!projectResult.Item) throw new NotFoundException('Project not found');
 
-    if (assignee['teamId'] !== dto.teamId) {
+    if (assignee && assignee['teamId'] !== dto.teamId) {
       throw new BadRequestException('Assignee does not belong to this team');
     }
 
@@ -83,7 +82,7 @@ export class TasksService {
       status: 'todo' as const,
       priority: dto.priority,
       deadline: dto.deadline,
-      assigneeId: dto.assigneeId,
+      ...(dto.assigneeId ? { assigneeId: dto.assigneeId } : {}),
       teamId: dto.teamId,
       projectId: dto.projectId,
       ...(imageKey ? { imageKey } : {}),
@@ -96,17 +95,19 @@ export class TasksService {
 
     await this.cloudWatchService.publishTaskCreated(dto.teamId);
 
-    try {
-      await this.notificationsService.publishTaskAssignment({
-        taskId: task.taskId,
-        taskTitle: dto.title,
-        assigneeEmail: assignee['email'],
-        assigneeName: assignee['name'],
-        teamId: dto.teamId,
-      });
-      await this.cloudWatchService.publishTaskAssigned(dto.teamId);
-    } catch (err) {
-      this.logger.warn(`Failed to send assignment notification: ${err}`);
+    if (assignee) {
+      try {
+        await this.notificationsService.publishTaskAssignment({
+          taskId: task.taskId,
+          taskTitle: dto.title,
+          assigneeEmail: assignee['email'],
+          assigneeName: assignee['name'],
+          teamId: dto.teamId,
+        });
+        await this.cloudWatchService.publishTaskAssigned(dto.teamId);
+      } catch (err) {
+        this.logger.warn(`Failed to send assignment notification: ${err}`);
+      }
     }
 
     return task;
@@ -145,6 +146,16 @@ export class TasksService {
       throw new ForbiddenException('Access denied to requested user tasks');
     }
 
+    if (requester.role !== 'manager') {
+      if (!requester.teamId) {
+        throw new ForbiddenException('User is not assigned to a team');
+      }
+      // Employee scope is always restricted to their own team.
+      return this.queryByIndex('assigneeId-index', 'assigneeId', targetUserId, {
+        teamId: requester.teamId,
+      });
+    }
+
     return this.queryByIndex('assigneeId-index', 'assigneeId', targetUserId, {});
   }
 
@@ -168,15 +179,31 @@ export class TasksService {
       throw new ForbiddenException('Only the assigned employee or a manager can update this task');
     }
 
+    const isReassigning = dto.assigneeId !== undefined && dto.assigneeId !== task['assigneeId'];
+    if (isReassigning && user.role !== 'manager') {
+      throw new ForbiddenException('Only managers can reassign tasks');
+    }
+
+    let newAssignee: Record<string, any> | undefined;
+    if (isReassigning && dto.assigneeId) {
+      const assigneeResult = await dynamoDB.send(
+        new GetCommand({ TableName: TABLES.Users, Key: { userId: dto.assigneeId } }),
+      );
+      if (!assigneeResult.Item) throw new NotFoundException('Assignee not found');
+      newAssignee = assigneeResult.Item;
+
+      if (newAssignee['teamId'] !== task['teamId']) {
+        throw new BadRequestException('Assignee does not belong to this task team');
+      }
+    }
+
     if (dto.status && dto.status !== task['status']) {
       this.validateStatusTransition(task['status'], dto.status, user.role);
     }
 
-    const isMarkingDone = dto.status === 'done' && task['status'] !== 'done';
-
     // Handle image replacement (retain the previous image version in S3)
     let newImageKey: string | undefined;
-    if (file && !isMarkingDone) {
+    if (file) {
       const uploaded = await this.s3Service.upload(file);
       newImageKey = uploaded.key;
     }
@@ -195,13 +222,7 @@ export class TasksService {
       setUpdates.map(([, v], i) => [`:u${i}`, v]),
     );
 
-    let expression = 'SET ' + setUpdates.map((_, i) => `#u${i} = :u${i}`).join(', ');
-
-    // Remove imageKey attribute from DB when marking done
-    if (isMarkingDone && task['imageKey']) {
-      names['#imgKey'] = 'imageKey';
-      expression += ' REMOVE #imgKey';
-    }
+    const expression = 'SET ' + setUpdates.map((_, i) => `#u${i} = :u${i}`).join(', ');
 
     const result = await dynamoDB.send(
       new UpdateCommand({
@@ -214,16 +235,22 @@ export class TasksService {
       }),
     );
 
+    if (isReassigning && newAssignee) {
+      try {
+        await this.notificationsService.publishTaskAssignment({
+          taskId,
+          taskTitle: result.Attributes?.['title'] || task['title'],
+          assigneeEmail: newAssignee['email'],
+          assigneeName: newAssignee['name'],
+          teamId: task['teamId'],
+        });
+      } catch (err) {
+        this.logger.warn(`Failed to send reassignment notification: ${err}`);
+      }
+    }
+
     if (dto.status && dto.status !== task['status']) {
       await this.logStatusChange(taskId, user.userId, task['status'], dto.status);
-
-      if (isMarkingDone && task['imageKey']) {
-        try {
-          await this.s3Service.remove(task['imageKey']);
-        } catch (err) {
-          this.logger.warn(`Failed to remove S3 image for completed task ${taskId}: ${err}`);
-        }
-      }
     }
 
     return result.Attributes;
@@ -385,21 +412,12 @@ export class TasksService {
       throw new BadRequestException(`Task status is ${task['status']}, not 'in-review'. Only tasks in review can be approved.`);
     }
 
-    // Delete image if present (task is being marked done)
-    if (task['imageKey']) {
-      try {
-        await this.s3Service.remove(task['imageKey']);
-      } catch (err) {
-        this.logger.warn(`Failed to remove S3 image for approved task ${taskId}: ${err}`);
-      }
-    }
-
     const result = await dynamoDB.send(
       new UpdateCommand({
         TableName: TABLES.Tasks,
         Key: { taskId },
-        UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt REMOVE #imgKey',
-        ExpressionAttributeNames: { '#status': 'status', '#updatedAt': 'updatedAt', '#imgKey': 'imageKey' },
+        UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt',
+        ExpressionAttributeNames: { '#status': 'status', '#updatedAt': 'updatedAt' },
         ExpressionAttributeValues: { ':status': 'done', ':updatedAt': new Date().toISOString() },
         ReturnValues: 'ALL_NEW',
       }),
@@ -438,6 +456,37 @@ export class TasksService {
     return result.Attributes;
   }
 
+  async getActivityLogs(taskId: string, user: RequestUser) {
+    // Ensures server-side team isolation (employees can't access other-team tasks)
+    await this.findOne(taskId, user);
+
+    try {
+      const result = await dynamoDB.send(
+        new QueryCommand({
+          TableName: TABLES.ActivityLog,
+          KeyConditionExpression: '#taskId = :taskId',
+          ExpressionAttributeNames: { '#taskId': 'taskId' },
+          ExpressionAttributeValues: { ':taskId': taskId },
+          ScanIndexForward: true,
+        }),
+      );
+      return result.Items || [];
+    } catch (err) {
+      // Fallback if ActivityLog isn't keyed in a way that supports Query
+      const result = await dynamoDB.send(
+        new ScanCommand({
+          TableName: TABLES.ActivityLog,
+          FilterExpression: '#taskId = :taskId',
+          ExpressionAttributeNames: { '#taskId': 'taskId' },
+          ExpressionAttributeValues: { ':taskId': taskId },
+        }),
+      );
+      const items = result.Items || [];
+      items.sort((a: any, b: any) => String(a.timestamp).localeCompare(String(b.timestamp)));
+      return items;
+    }
+  }
+
   private async logStatusChange(
     taskId: string,
     changedBy: string,
@@ -450,6 +499,7 @@ export class TasksService {
         Item: {
           taskId,
           timestamp: new Date().toISOString(),
+          eventType: 'STATUS_CHANGED',
           changedBy,
           oldStatus,
           newStatus,

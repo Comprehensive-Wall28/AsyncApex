@@ -19,6 +19,7 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
 import { S3Service } from '../s3/s3.service';
+import { CloudWatchService } from '../cloudwatch/cloudwatch.service';
 import { v4 as uuidv4 } from 'uuid';
 
 interface RequestUser {
@@ -44,6 +45,7 @@ export class TasksService {
     private readonly notificationsService: NotificationsService,
     private readonly usersService: UsersService,
     private readonly s3Service: S3Service,
+    private readonly cloudWatchService: CloudWatchService,
   ) { }
 
   async create(dto: CreateTaskDto, user: RequestUser, file?: Express.Multer.File) {

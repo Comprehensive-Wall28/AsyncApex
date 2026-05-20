@@ -270,8 +270,6 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
 
-  const isManager = role === 'manager'
-
   return (
     <Box
       ref={setNodeRef}

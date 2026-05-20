@@ -1,8 +1,6 @@
 import {
   Box,
-  Button,
   Container,
-  Grid,
   Paper,
   Typography,
 } from '@mui/material';
@@ -14,7 +12,6 @@ import {
   NotificationsRounded,
   AnalyticsRounded,
 } from '@mui/icons-material';
-import { Link as RouterLink } from 'react-router-dom';
 import { Navbar } from '../components/Navbar';
 
 const features = [
@@ -92,52 +89,57 @@ export function Features() {
             </Typography>
           </Box>
 
-          <Grid container spacing={3}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' },
+              gap: 3,
+            }}
+          >
             {features.map((feature) => (
-              <Grid item xs={12} sm={6} md={4} key={feature.title}>
-                <Paper
-                  elevation={0}
+              <Paper
+                key={feature.title}
+                elevation={0}
+                sx={{
+                  height: '100%',
+                  p: 3,
+                  borderRadius: '24px',
+                  bgcolor: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(139,92,246,0.16)',
+                  backdropFilter: 'blur(10px)',
+                  transition: '0.2s ease',
+                  '&:hover': {
+                    transform: 'translateY(-6px)',
+                    borderColor: 'rgba(6,182,212,0.45)',
+                  },
+                }}
+              >
+                <Box
                   sx={{
-                    height: '100%',
-                    p: 3,
-                    borderRadius: '24px',
-                    bgcolor: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(139,92,246,0.16)',
-                    backdropFilter: 'blur(10px)',
-                    transition: '0.2s ease',
-                    '&:hover': {
-                      transform: 'translateY(-6px)',
-                      borderColor: 'rgba(6,182,212,0.45)',
-                    },
+                    width: 50,
+                    height: 50,
+                    borderRadius: '16px',
+                    mb: 2,
+                    background: 'linear-gradient(135deg, #7C3AED 0%, #06B6D4 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
                   }}
                 >
-                  <Box
-                    sx={{
-                      width: 50,
-                      height: 50,
-                      borderRadius: '16px',
-                      mb: 2,
-                      background: 'linear-gradient(135deg, #7C3AED 0%, #06B6D4 100%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#fff',
-                    }}
-                  >
-                    {feature.icon}
-                  </Box>
+                  {feature.icon}
+                </Box>
 
-                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-                    {feature.title}
-                  </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+                  {feature.title}
+                </Typography>
 
-                  <Typography color="text.secondary" sx={{ lineHeight: 1.7 }}>
-                    {feature.description}
-                  </Typography>
-                </Paper>
-              </Grid>
+                <Typography color="text.secondary" sx={{ lineHeight: 1.7 }}>
+                  {feature.description}
+                </Typography>
+              </Paper>
             ))}
-          </Grid>
+          </Box>
         </Container>
       </Box>
     </Box>

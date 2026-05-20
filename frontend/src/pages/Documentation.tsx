@@ -1,7 +1,6 @@
 import {
   Box,
   Container,
-  Grid,
   Paper,
   Typography,
   Chip,
@@ -97,63 +96,68 @@ export function Documentation() {
             </Typography>
           </Box>
 
-          <Grid container spacing={3}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' },
+              gap: 3,
+            }}
+          >
             {docs.map((doc) => (
-              <Grid item xs={12} sm={6} md={4} key={doc.title}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    height: '100%',
-                    p: 3,
-                    borderRadius: '24px',
-                    bgcolor: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(139,92,246,0.16)',
-                    backdropFilter: 'blur(10px)',
-                    transition: '0.2s ease',
-                    '&:hover': {
-                      transform: 'translateY(-6px)',
-                      borderColor: 'rgba(6,182,212,0.45)',
-                    },
-                  }}
-                >
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                    <Box
-                      sx={{
-                        width: 50,
-                        height: 50,
-                        borderRadius: '16px',
-                        background: 'linear-gradient(135deg, #7C3AED 0%, #06B6D4 100%)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#fff',
-                      }}
-                    >
-                      {doc.icon}
-                    </Box>
-
-                    <Chip
-                      label={doc.tag}
-                      size="small"
-                      sx={{
-                        color: 'text.primary',
-                        bgcolor: 'rgba(255,255,255,0.06)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                      }}
-                    />
+              <Paper
+                key={doc.title}
+                elevation={0}
+                sx={{
+                  height: '100%',
+                  p: 3,
+                  borderRadius: '24px',
+                  bgcolor: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(139,92,246,0.16)',
+                  backdropFilter: 'blur(10px)',
+                  transition: '0.2s ease',
+                  '&:hover': {
+                    transform: 'translateY(-6px)',
+                    borderColor: 'rgba(6,182,212,0.45)',
+                  },
+                }}
+              >
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                  <Box
+                    sx={{
+                      width: 50,
+                      height: 50,
+                      borderRadius: '16px',
+                      background: 'linear-gradient(135deg, #7C3AED 0%, #06B6D4 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#fff',
+                    }}
+                  >
+                    {doc.icon}
                   </Box>
 
-                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-                    {doc.title}
-                  </Typography>
+                  <Chip
+                    label={doc.tag}
+                    size="small"
+                    sx={{
+                      color: 'text.primary',
+                      bgcolor: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                    }}
+                  />
+                </Box>
 
-                  <Typography color="text.secondary" sx={{ lineHeight: 1.7 }}>
-                    {doc.description}
-                  </Typography>
-                </Paper>
-              </Grid>
+                <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+                  {doc.title}
+                </Typography>
+
+                <Typography color="text.secondary" sx={{ lineHeight: 1.7 }}>
+                  {doc.description}
+                </Typography>
+              </Paper>
             ))}
-          </Grid>
+          </Box>
         </Container>
       </Box>
     </Box>

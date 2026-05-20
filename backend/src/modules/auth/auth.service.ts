@@ -93,6 +93,10 @@ export class AuthService {
   async signin(dto: SigninDto) {
     const dbUser = await this.usersService.findByEmail(dto.email);
 
+    if (dbUser && dbUser['isLoggedIn'] === true) {
+      throw new ConflictException('User is already signed in');
+    }
+
     try {
       const result = await this.cognito.send(
         new InitiateAuthCommand({

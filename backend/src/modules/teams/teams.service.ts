@@ -52,6 +52,21 @@ export class TeamsService {
   async update(teamId: string, dto: UpdateTeamDto) {
     await this.findOne(teamId);
 
+    if (dto.name) {
+      const existing = await dynamoDB.send(
+        new ScanCommand({
+          TableName: TABLES.Teams,
+          FilterExpression: '#name = :name',
+          ExpressionAttributeNames: { '#name': 'name' },
+          ExpressionAttributeValues: { ':name': dto.name },
+        }),
+      );
+      const duplicate = existing.Items?.find((item) => item.teamId !== teamId);
+      if (duplicate) {
+        throw new ConflictException('Team with this name already exists');
+      }
+    }
+
     const updates = Object.entries(dto).filter(([, v]) => v !== undefined);
     if (updates.length === 0) return this.findOne(teamId);
 

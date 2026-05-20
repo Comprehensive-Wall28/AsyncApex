@@ -2,7 +2,6 @@ import {
   Box,
   Button,
   Container,
-  Grid,
   Paper,
   Typography,
   List,
@@ -98,95 +97,99 @@ export function Pricing() {
             </Typography>
           </Box>
 
-          <Grid container spacing={3} alignItems="stretch">
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+              gap: 3,
+              alignItems: 'stretch',
+            }}
+          >
             {plans.map((plan) => (
-              <Grid item xs={12} md={4} key={plan.name}>
-                <Paper
-                  elevation={0}
+              <Paper
+                key={plan.name}
+                elevation={0}
+                sx={{
+                  height: '100%',
+                  p: 3,
+                  borderRadius: '28px',
+                  bgcolor: plan.highlighted
+                    ? 'rgba(124,58,237,0.12)'
+                    : 'rgba(255,255,255,0.03)',
+                  border: '1px solid',
+                  borderColor: plan.highlighted
+                    ? 'rgba(6,182,212,0.45)'
+                    : 'rgba(139,92,246,0.16)',
+                  backdropFilter: 'blur(10px)',
+                  position: 'relative',
+                }}
+              >
+                {plan.highlighted && (
+                  <Chip
+                    label="Most Popular"
+                    sx={{
+                      mb: 2,
+                      color: '#fff',
+                      fontWeight: 700,
+                      background: 'linear-gradient(135deg, #7C3AED 0%, #06B6D4 100%)',
+                    }}
+                  />
+                )}
+
+                <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>
+                  {plan.name}
+                </Typography>
+
+                <Typography color="text.secondary" sx={{ lineHeight: 1.7, mb: 3 }}>
+                  {plan.description}
+                </Typography>
+
+                <Box sx={{ display: 'flex', alignItems: 'baseline', mb: 3 }}>
+                  <Typography sx={{ fontSize: '3rem', fontWeight: 900 }}>
+                    {plan.price}
+                  </Typography>
+                  {plan.price !== 'Custom' && (
+                    <Typography color="text.secondary" sx={{ ml: 1 }}>
+                      / month
+                    </Typography>
+                  )}
+                </Box>
+
+                <List sx={{ mb: 3 }}>
+                  {plan.features.map((feature) => (
+                    <ListItem key={feature} disableGutters>
+                      <ListItemIcon sx={{ minWidth: 34 }}>
+                        <CheckCircleRounded sx={{ color: '#06B6D4', fontSize: 21 }} />
+                      </ListItemIcon>
+                      <ListItemText>
+                        <Typography color="text.secondary" sx={{ fontSize: '0.95rem' }}>
+                          {feature}
+                        </Typography>
+                      </ListItemText>
+                    </ListItem>
+                  ))}
+                </List>
+
+                <Button
+                  component={RouterLink}
+                  to="/signup"
+                  fullWidth
+                  variant={plan.highlighted ? 'contained' : 'outlined'}
                   sx={{
-                    height: '100%',
-                    p: 3,
-                    borderRadius: '28px',
-                    bgcolor: plan.highlighted
-                      ? 'rgba(124,58,237,0.12)'
-                      : 'rgba(255,255,255,0.03)',
-                    border: '1px solid',
-                    borderColor: plan.highlighted
-                      ? 'rgba(6,182,212,0.45)'
-                      : 'rgba(139,92,246,0.16)',
-                    backdropFilter: 'blur(10px)',
-                    position: 'relative',
+                    py: 1.2,
+                    borderRadius: '14px',
+                    textTransform: 'none',
+                    fontWeight: 800,
+                    ...(plan.highlighted && {
+                      background: 'linear-gradient(135deg, #7C3AED 0%, #06B6D4 100%)',
+                    }),
                   }}
                 >
-                  {plan.highlighted && (
-                    <Chip
-                      label="Most Popular"
-                      sx={{
-                        mb: 2,
-                        color: '#fff',
-                        fontWeight: 700,
-                        background: 'linear-gradient(135deg, #7C3AED 0%, #06B6D4 100%)',
-                      }}
-                    />
-                  )}
-
-                  <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>
-                    {plan.name}
-                  </Typography>
-
-                  <Typography color="text.secondary" sx={{ lineHeight: 1.7, mb: 3 }}>
-                    {plan.description}
-                  </Typography>
-
-                  <Box sx={{ display: 'flex', alignItems: 'baseline', mb: 3 }}>
-                    <Typography sx={{ fontSize: '3rem', fontWeight: 900 }}>
-                      {plan.price}
-                    </Typography>
-                    {plan.price !== 'Custom' && (
-                      <Typography color="text.secondary" sx={{ ml: 1 }}>
-                        / month
-                      </Typography>
-                    )}
-                  </Box>
-
-                  <List sx={{ mb: 3 }}>
-                    {plan.features.map((feature) => (
-                      <ListItem key={feature} disableGutters>
-                        <ListItemIcon sx={{ minWidth: 34 }}>
-                          <CheckCircleRounded sx={{ color: '#06B6D4', fontSize: 21 }} />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={feature}
-                          primaryTypographyProps={{
-                            color: 'text.secondary',
-                            fontSize: '0.95rem',
-                          }}
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-
-                  <Button
-                    component={RouterLink}
-                    to="/signup"
-                    fullWidth
-                    variant={plan.highlighted ? 'contained' : 'outlined'}
-                    sx={{
-                      py: 1.2,
-                      borderRadius: '14px',
-                      textTransform: 'none',
-                      fontWeight: 800,
-                      ...(plan.highlighted && {
-                        background: 'linear-gradient(135deg, #7C3AED 0%, #06B6D4 100%)',
-                      }),
-                    }}
-                  >
-                    Get Started
-                  </Button>
-                </Paper>
-              </Grid>
+                  Get Started
+                </Button>
+              </Paper>
             ))}
-          </Grid>
+          </Box>
         </Container>
       </Box>
     </Box>

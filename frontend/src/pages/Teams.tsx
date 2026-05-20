@@ -2,14 +2,10 @@ import { Box, Typography, Button, Container, Stack } from '@mui/material';
 import { AssessmentRounded } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
-import type { Team } from './../api/interface';
 
 export const Teams: React.FC = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-
-  const [team, setTeam] = useState(Team)
 
   if (loading) return null; // Or a spinner
 

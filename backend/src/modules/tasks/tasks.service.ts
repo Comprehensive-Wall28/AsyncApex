@@ -73,6 +73,21 @@ export class TasksService {
       }
 
       assignee = assigneeResult.Item;
+
+      if (!assignee['teamId']) {
+        throw new BadRequestException('Assignee must belong to a team');
+      }
+
+      const teamResult = await dynamoDB.send(
+        new GetCommand({
+          TableName: TABLES.Teams,
+          Key: { teamId: assignee['teamId'] },
+        }),
+      );
+
+      if (!teamResult.Item) {
+        throw new NotFoundException('Assignee team not found');
+      }
     }
 
     if (dto.teamId) {
@@ -294,7 +309,6 @@ export class TasksService {
     const allowed: Record<string, string> = {
       'todo': 'in-progress',
       'in-progress': 'in-review',
-      'in-review': 'done',
     };
 
     if (allowed[from] !== to) {

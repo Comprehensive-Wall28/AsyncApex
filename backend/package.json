@@ -16,7 +16,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "test:aws": "ts-node -r dotenv/config scripts/test-aws-connection.ts"
+    "test:aws": "ts-node -r dotenv/config scripts/test-aws-connection.ts",
+    "package-lambdas": "node scripts/package-lambdas.js"
   },
   "dependencies": {
     "@aws-sdk/client-cloudwatch": "^3.0.0",
@@ -37,6 +38,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
     "dotenv": "^17.4.2",
+    "jimp": "^0.22.12",
     "jsonwebtoken": "^9.0.3",
     "jwks-rsa": "^3.0.0",
     "multer": "^1.4.5-lts.1",

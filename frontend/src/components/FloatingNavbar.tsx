@@ -1,8 +1,9 @@
 import React from 'react';
 import { AppBar, Toolbar, Box, Typography, Button, IconButton, Avatar } from '@mui/material';
-import { BoltRounded, LogoutRounded } from '@mui/icons-material';
+import { LogoutRounded } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import { Logo } from './Logo';
 
 interface FloatingNavbarProps {
   userName?: string;
@@ -28,27 +29,7 @@ export const FloatingNavbar: React.FC<FloatingNavbarProps> = ({ userName }) => {
     <AppBar position="fixed" elevation={0}>
       <Toolbar sx={{ justifyContent: 'space-between', minHeight: '64px !important', px: { xs: 2, md: 4 } }}>
         {/* Logo */}
-        <Box
-          sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }}
-          onClick={() => navigate('/dashboard')}
-        >
-          <Box
-            sx={{
-              width: 30,
-              height: 30,
-              borderRadius: '8px',
-              bgcolor: 'primary.main',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <BoltRounded sx={{ color: '#fff', fontSize: 18 }} />
-          </Box>
-          <Typography sx={{ fontWeight: 800, fontSize: '1.1rem', color: 'text.primary' }}>
-            AsyncApex
-          </Typography>
-        </Box>
+        <Logo size={28} onClick={() => navigate('/dashboard')} />
 
         {/* Nav Links */}
         <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 1 }}>

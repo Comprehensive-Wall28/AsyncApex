@@ -17,6 +17,6 @@
 		"backend:test:aws": "cd backend && npm run test:aws",
 		"install:all": "pnpm install && pnpm run frontend:install && pnpm run backend:install",
 		"frontend:install": "cd frontend && pnpm install",
-		"backend:install": "cd backend && npm install"
+		"backend:install": "cd backend && pnpm install"
 	}
 }

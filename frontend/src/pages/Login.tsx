@@ -8,12 +8,14 @@ import {
   Stack,
   Divider,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
-import { BoltRounded, LockOutlined, FlashOnOutlined } from '@mui/icons-material';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { LockOutlined, FlashOnOutlined } from '@mui/icons-material';
 import api from '../api';
+import { Logo } from '../components/Logo';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +24,7 @@ export const Login: React.FC = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +38,11 @@ export const Login: React.FC = () => {
         localStorage.setItem('accessToken', response.accessToken);
         localStorage.setItem('refreshToken', response.refreshToken);
       }
-      navigate('/dashboard');
+
+      // 👇 Replace navigate('/dashboard') with this
+      const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
+      navigate(from, { replace: true });
+
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid email or password. Please try again.');
     } finally {
@@ -60,26 +67,8 @@ export const Login: React.FC = () => {
         }}
       >
         {/* Logo */}
-        <Box
-          sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 10, cursor: 'pointer' }}
-          onClick={() => navigate('/')}
-        >
-          <Box
-            sx={{
-              width: 30,
-              height: 30,
-              borderRadius: '8px',
-              bgcolor: 'primary.main',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <BoltRounded sx={{ color: '#fff', fontSize: 18 }} />
-          </Box>
-          <Typography sx={{ fontWeight: 700, fontSize: '1.05rem', color: 'text.primary' }}>
-            AsyncApex
-          </Typography>
+        <Box sx={{ mb: 10 }}>
+          <Logo size={28} onClick={() => navigate('/')} />
         </Box>
 
         <Box

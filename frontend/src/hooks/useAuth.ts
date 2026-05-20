@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { jwtDecode } from 'jwt-decode';
+import api from '../api';
 
 export interface AuthUser {
   userId: string;
@@ -14,24 +15,28 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkAuth = () => {
+    const checkAuth = async () => {
       try {
         const token = localStorage.getItem('idToken');
-        if (token) {
-          const decoded: any = jwtDecode(token);
 
-          setUser({
-            userId: decoded.sub,
-            email: decoded.email,
-            name: decoded.name || 'User',
-            role: decoded['custom:role'] || 'employee',
-            teamId: decoded['custom:teamId'],
-          });
-        } else {
+        if (!token) {
           setUser(null);
+          return;
         }
+
+        const decoded: any = jwtDecode(token);
+
+        const dbUser = await api.users.getMe() as AuthUser;
+
+        setUser({
+          userId: dbUser.userId || decoded.sub,
+          email: dbUser.email || decoded.email,
+          name: dbUser.name || decoded.name || 'User',
+          role: dbUser.role || decoded['custom:role'] || 'employee',
+          teamId: dbUser.teamId,
+        });
       } catch (error) {
-        console.error('Failed to decode token', error);
+        console.error('Failed to load auth user', error);
         setUser(null);
       } finally {
         setLoading(false);

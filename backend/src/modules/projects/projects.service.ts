@@ -55,6 +55,21 @@ export class ProjectsService {
   async update(projectId: string, dto: UpdateProjectDto) {
     await this.findOne(projectId);
 
+    if (dto.name) {
+      const existing = await dynamoDB.send(
+        new ScanCommand({
+          TableName: TABLES.Projects,
+          FilterExpression: '#name = :name',
+          ExpressionAttributeNames: { '#name': 'name' },
+          ExpressionAttributeValues: { ':name': dto.name },
+        }),
+      );
+      const duplicate = existing.Items?.find((item) => item.projectId !== projectId);
+      if (duplicate) {
+        throw new ConflictException('Project with this name already exists');
+      }
+    }
+
     const updates = Object.entries({ ...dto, updatedAt: new Date().toISOString() }).filter(
       ([, v]) => v !== undefined,
     );

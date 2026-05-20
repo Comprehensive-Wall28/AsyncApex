@@ -19,6 +19,7 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
 import { S3Service } from '../s3/s3.service';
+import { CloudWatchService } from '../cloudwatch/cloudwatch.service';
 import { v4 as uuidv4 } from 'uuid';
 
 interface RequestUser {
@@ -44,31 +45,73 @@ export class TasksService {
     private readonly notificationsService: NotificationsService,
     private readonly usersService: UsersService,
     private readonly s3Service: S3Service,
-  ) {}
+    private readonly cloudWatchService: CloudWatchService,
+  ) { }
 
   async create(dto: CreateTaskDto, user: RequestUser, file?: Express.Multer.File) {
-    let assignee: any = null;
+    const hasAssignee = !!dto.assigneeId;
+    const hasTeam = !!dto.teamId;
+
+    if (hasAssignee === hasTeam) {
+      throw new BadRequestException(
+        'You must provide either assigneeId or teamId, but not both.',
+      );
+    }
+
+    let assignee: Record<string, any> | undefined;
+
     if (dto.assigneeId) {
       const assigneeResult = await dynamoDB.send(
-        new GetCommand({ TableName: TABLES.Users, Key: { userId: dto.assigneeId } }),
+        new GetCommand({
+          TableName: TABLES.Users,
+          Key: { userId: dto.assigneeId },
+        }),
       );
-      if (!assigneeResult.Item) throw new NotFoundException('Assignee not found');
+
+      if (!assigneeResult.Item) {
+        throw new NotFoundException('Assignee not found');
+      }
+
       assignee = assigneeResult.Item;
 
-      if (assignee['teamId'] !== dto.teamId) {
-        throw new BadRequestException('Assignee does not belong to this team');
+      if (!assignee['teamId']) {
+        throw new BadRequestException('Assignee must belong to a team');
+      }
+
+      const teamResult = await dynamoDB.send(
+        new GetCommand({
+          TableName: TABLES.Teams,
+          Key: { teamId: assignee['teamId'] },
+        }),
+      );
+
+      if (!teamResult.Item) {
+        throw new NotFoundException('Assignee team not found');
       }
     }
 
-    const teamResult = await dynamoDB.send(
-      new GetCommand({ TableName: TABLES.Teams, Key: { teamId: dto.teamId } }),
-    );
-    if (!teamResult.Item) throw new NotFoundException('Team not found');
+    if (dto.teamId) {
+      const teamResult = await dynamoDB.send(
+        new GetCommand({
+          TableName: TABLES.Teams,
+          Key: { teamId: dto.teamId },
+        }),
+      );
+
+      if (!teamResult.Item) {
+        throw new NotFoundException('Team not found');
+      }
+    }
 
     const projectResult = await dynamoDB.send(
       new GetCommand({ TableName: TABLES.Projects, Key: { projectId: dto.projectId } }),
     );
-    if (!projectResult.Item) throw new NotFoundException('Project not found');
+
+    if (!projectResult.Item) {
+      throw new NotFoundException('Project not found');
+    }
+
+    const taskTeamId = dto.teamId || (assignee ? assignee['teamId'] : undefined);
 
     let imageKey: string | undefined;
     if (file) {
@@ -84,8 +127,8 @@ export class TasksService {
       status: 'todo' as const,
       priority: dto.priority,
       deadline: dto.deadline,
-      assigneeId: dto.assigneeId,
-      teamId: dto.teamId,
+      ...(dto.assigneeId ? { assigneeId: dto.assigneeId } : {}),
+      teamId: taskTeamId,
       projectId: dto.projectId,
       ...(imageKey ? { imageKey } : {}),
       createdBy: user.userId,
@@ -93,7 +136,40 @@ export class TasksService {
       updatedAt: now,
     };
 
-    await dynamoDB.send(new PutCommand({ TableName: TABLES.Tasks, Item: task }));
+    await dynamoDB.send(
+      new PutCommand({
+        TableName: TABLES.Tasks,
+        Item: task,
+      }),
+    );
+
+    await this.cloudWatchService.publishTaskCreated(taskTeamId);
+
+    if (!dto.assigneeId && taskTeamId) {
+      try {
+        const teamResult = await dynamoDB.send(
+          new GetCommand({ TableName: TABLES.Teams, Key: { teamId: taskTeamId } }),
+        );
+        if (teamResult.Item) {
+          await dynamoDB.send(
+            new PutCommand({
+              TableName: TABLES.ActivityLog,
+              Item: {
+                taskId: task.taskId,
+                timestamp: new Date().toISOString(),
+                changedBy: user.userId,
+                userName: teamResult.Item.name,
+                eventType: 'TASK_ASSIGNED',
+                assigneeName: `${teamResult.Item.name} Team`,
+                teamId: teamResult.Item.teamId,
+              },
+            }),
+          );
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to log initial team assignment: ${err}`);
+      }
+    }
 
     if (assignee) {
       try {
@@ -102,8 +178,11 @@ export class TasksService {
           taskTitle: dto.title,
           assigneeEmail: assignee['email'],
           assigneeName: assignee['name'],
-          teamId: dto.teamId,
+          teamId: taskTeamId,
+          assigneeId: dto.assigneeId,
+          assignedBy: user.userId,
         });
+        await this.cloudWatchService.publishTaskAssigned(taskTeamId);
       } catch (err) {
         this.logger.warn(`Failed to send assignment notification: ${err}`);
       }
@@ -182,19 +261,69 @@ export class TasksService {
       this.validateStatusTransition(task['status'], dto.status, user.role);
     }
 
+    const isMarkingDone = dto.status === 'done' && task['status'] !== 'done';
+
+    // Handle assignee update validation
+    let assignee: Record<string, any> | undefined;
+    let newTeamId: string | undefined;
+    let removeAssigneeId = false;
+
+    if (dto.assigneeId && dto.assigneeId !== task['assigneeId']) {
+      const assigneeResult = await dynamoDB.send(
+        new GetCommand({
+          TableName: TABLES.Users,
+          Key: { userId: dto.assigneeId },
+        }),
+      );
+
+      if (!assigneeResult.Item) {
+        throw new NotFoundException('Assignee not found');
+      }
+
+      assignee = assigneeResult.Item;
+
+      if (!assignee['teamId']) {
+        throw new BadRequestException('Assignee must belong to a team');
+      }
+
+      const teamResult = await dynamoDB.send(
+        new GetCommand({
+          TableName: TABLES.Teams,
+          Key: { teamId: assignee['teamId'] },
+        }),
+      );
+
+      if (!teamResult.Item) {
+        throw new NotFoundException('Assignee team not found');
+      }
+
+      newTeamId = assignee['teamId'];
+    }
+
+    // Clear assigneeId if explicitly cleared OR if teamId is changed without providing an assignee
+    if (dto.assigneeId === '' || (dto.teamId && !dto.assigneeId && dto.teamId !== task['teamId'])) {
+      removeAssigneeId = true;
+    }
+
     // Handle image replacement (retain the previous image version in S3)
     let newImageKey: string | undefined;
-    if (file) {
+    if (file && !isMarkingDone) {
       const uploaded = await this.s3Service.upload(file);
       newImageKey = uploaded.key;
     }
 
     const setData: Record<string, any> = {
       ...dto,
+      ...(newTeamId ? { teamId: newTeamId } : {}),
       ...(newImageKey ? { imageKey: newImageKey } : {}),
       updatedAt: new Date().toISOString(),
     };
-    const setUpdates = Object.entries(setData).filter(([, v]) => v !== undefined);
+
+    if (removeAssigneeId) {
+      delete setData.assigneeId;
+    }
+
+    const setUpdates = Object.entries(setData).filter(([, v]) => v !== undefined && v !== '');
 
     const names: Record<string, string> = Object.fromEntries(
       setUpdates.map(([k], i) => [`#u${i}`, k]),
@@ -204,6 +333,22 @@ export class TasksService {
     );
 
     let expression = 'SET ' + setUpdates.map((_, i) => `#u${i} = :u${i}`).join(', ');
+
+    const removeAttributes: string[] = [];
+
+    if (removeAssigneeId && task['assigneeId']) {
+      names['#removeAssignee'] = 'assigneeId';
+      removeAttributes.push('#removeAssignee');
+    }
+
+    if (isMarkingDone && task['imageKey']) {
+      names['#imgKey'] = 'imageKey';
+      removeAttributes.push('#imgKey');
+    }
+
+    if (removeAttributes.length > 0) {
+      expression += ' REMOVE ' + removeAttributes.join(', ');
+    }
 
     const result = await dynamoDB.send(
       new UpdateCommand({
@@ -216,8 +361,72 @@ export class TasksService {
       }),
     );
 
+    // Write activity log for team assignment when assigned to a team directly (or assignee cleared)
+    const oldAssigneeId = task['assigneeId'];
+    const newAssigneeId = result.Attributes?.['assigneeId'];
+    const oldTeamId = task['teamId'];
+    const newTeamIdVal = result.Attributes?.['teamId'];
+
+    if (!newAssigneeId && (newTeamIdVal !== oldTeamId || removeAssigneeId)) {
+      try {
+        const teamResult = await dynamoDB.send(
+          new GetCommand({ TableName: TABLES.Teams, Key: { teamId: newTeamIdVal || oldTeamId } }),
+        );
+        if (teamResult.Item) {
+          await dynamoDB.send(
+            new PutCommand({
+              TableName: TABLES.ActivityLog,
+              Item: {
+                taskId,
+                timestamp: new Date().toISOString(),
+                changedBy: user.userId,
+                userName: teamResult.Item.name,
+                eventType: 'TASK_ASSIGNED',
+                assigneeName: `${teamResult.Item.name} Team`,
+                teamId: teamResult.Item.teamId,
+              },
+            }),
+          );
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to log team assignment for task ${taskId}: ${err}`);
+      }
+    }
+
+    // Send SNS and publish CloudWatch metric on successful reassignment/assignment
+    if (assignee && newTeamId) {
+      try {
+        await this.notificationsService.publishTaskAssignment({
+          taskId,
+          taskTitle: dto.title || task['title'],
+          assigneeEmail: assignee['email'],
+          assigneeName: assignee['name'],
+          teamId: newTeamId,
+          assigneeId: dto.assigneeId!,
+          assignedBy: user.userId,
+        });
+        await this.cloudWatchService.publishTaskAssigned(newTeamId);
+      } catch (err) {
+        this.logger.warn(`Failed to send assignment notification for task ${taskId}: ${err}`);
+      }
+    }
+
     if (dto.status && dto.status !== task['status']) {
       await this.logStatusChange(taskId, user.userId, task['status'], dto.status);
+
+      if (isMarkingDone && task['imageKey']) {
+        try {
+          await this.s3Service.remove(task['imageKey']);
+        } catch (err) {
+          this.logger.warn(`Failed to remove S3 image for completed task ${taskId}: ${err}`);
+        }
+      }
+
+      if (isMarkingDone) {
+        const timeToClose = (Date.now() - new Date(task['createdAt']).getTime()) / (1000 * 60 * 60);
+        await this.cloudWatchService.publishTaskClosed(task['teamId']);
+        await this.cloudWatchService.publishAverageTimeToClose(timeToClose, task['teamId']);
+      }
     }
 
     return result.Attributes;
@@ -242,7 +451,6 @@ export class TasksService {
     const allowed: Record<string, string> = {
       'todo': 'in-progress',
       'in-progress': 'in-review',
-      'in-review': 'done',
     };
 
     if (allowed[from] !== to) {
@@ -323,22 +531,66 @@ export class TasksService {
       throw new BadRequestException(`Task status is ${task['status']}, not 'todo'. Cannot start a task that's already in progress.`);
     }
 
-    if (user.role !== 'manager' && task['assigneeId'] !== user.userId) {
-      throw new ForbiddenException('Only the assigned employee can start this task');
+    const isTeamTask = !task['assigneeId'] && task['teamId'] === user.teamId;
+
+    if (
+      user.role !== 'manager' &&
+      task['assigneeId'] !== user.userId &&
+      !isTeamTask
+    ) {
+      throw new ForbiddenException('Only the assigned employee or a team member can start this task');
     }
+
+    const shouldClaim = !task['assigneeId'];
 
     const result = await dynamoDB.send(
       new UpdateCommand({
         TableName: TABLES.Tasks,
         Key: { taskId },
-        UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt',
-        ExpressionAttributeNames: { '#status': 'status', '#updatedAt': 'updatedAt' },
-        ExpressionAttributeValues: { ':status': 'in-progress', ':updatedAt': new Date().toISOString() },
+        UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt' + (shouldClaim ? ', #assigneeId = :assigneeId' : ''),
+        ExpressionAttributeNames: {
+          '#status': 'status',
+          '#updatedAt': 'updatedAt',
+          ...(shouldClaim ? { '#assigneeId': 'assigneeId' } : {}),
+        },
+        ExpressionAttributeValues: {
+          ':status': 'in-progress',
+          ':updatedAt': new Date().toISOString(),
+          ...(shouldClaim ? { ':assigneeId': user.userId } : {}),
+        },
         ReturnValues: 'ALL_NEW',
       }),
     );
 
     await this.logStatusChange(taskId, user.userId, 'todo', 'in-progress');
+
+    if (shouldClaim) {
+      try {
+        const userResult = await dynamoDB.send(
+          new GetCommand({ TableName: TABLES.Users, Key: { userId: user.userId } }),
+        );
+        if (userResult.Item) {
+          await dynamoDB.send(
+            new PutCommand({
+              TableName: TABLES.ActivityLog,
+              Item: {
+                taskId,
+                timestamp: new Date().toISOString(),
+                changedBy: user.userId,
+                userName: userResult.Item.name,
+                eventType: 'TASK_ASSIGNED',
+                assigneeName: userResult.Item.name,
+                assigneeEmail: userResult.Item.email,
+                teamId: userResult.Item.teamId,
+              },
+            }),
+          );
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to log task claiming assignment: ${err}`);
+      }
+    }
+
     return result.Attributes;
   }
 
@@ -379,18 +631,32 @@ export class TasksService {
       throw new BadRequestException(`Task status is ${task['status']}, not 'in-review'. Only tasks in review can be approved.`);
     }
 
+    // Delete image if present (task is being marked done)
+    if (task['imageKey']) {
+      try {
+        await this.s3Service.remove(task['imageKey']);
+      } catch (err) {
+        this.logger.warn(`Failed to remove S3 image for approved task ${taskId}: ${err}`);
+      }
+    }
+
     const result = await dynamoDB.send(
       new UpdateCommand({
         TableName: TABLES.Tasks,
         Key: { taskId },
-        UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt',
-        ExpressionAttributeNames: { '#status': 'status', '#updatedAt': 'updatedAt' },
+        UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt REMOVE #imgKey',
+        ExpressionAttributeNames: { '#status': 'status', '#updatedAt': 'updatedAt', '#imgKey': 'imageKey' },
         ExpressionAttributeValues: { ':status': 'done', ':updatedAt': new Date().toISOString() },
         ReturnValues: 'ALL_NEW',
       }),
     );
 
     await this.logStatusChange(taskId, user.userId, 'in-review', 'done');
+
+    const timeToClose = (Date.now() - new Date(task['createdAt']).getTime()) / (1000 * 60 * 60);
+    await this.cloudWatchService.publishTaskClosed(task['teamId']);
+    await this.cloudWatchService.publishAverageTimeToClose(timeToClose, task['teamId']);
+
     return result.Attributes;
   }
 
@@ -419,79 +685,6 @@ export class TasksService {
     await this.logStatusChange(taskId, user.userId, 'in-review', 'in-progress');
     return result.Attributes;
   }
-
-  async getActivityLogs(taskId: string, user: RequestUser) {
-    // Verify task exists and user has access
-    await this.findOne(taskId, user);
-
-    let logs: any[] = [];
-    try {
-      const result = await dynamoDB.send(
-        new QueryCommand({
-          TableName: TABLES.ActivityLog,
-          KeyConditionExpression: '#taskId = :taskId',
-          ExpressionAttributeNames: { '#taskId': 'taskId' },
-          ExpressionAttributeValues: { ':taskId': taskId },
-          ScanIndexForward: false, // Return newest first
-        }),
-      );
-      logs = result.Items || [];
-    } catch (err) {
-      // Fallback if ActivityLog isn't keyed in a way that supports Query
-      const result = await dynamoDB.send(
-        new ScanCommand({
-          TableName: TABLES.ActivityLog,
-          FilterExpression: '#taskId = :taskId',
-          ExpressionAttributeNames: { '#taskId': 'taskId' },
-          ExpressionAttributeValues: { ':taskId': taskId },
-        }),
-      );
-      logs = result.Items || [];
-      // Sort newest first
-      logs.sort((a: any, b: any) => String(b.timestamp).localeCompare(String(a.timestamp)));
-    }
-
-    // Fetch user details for each log entry to provide names
-    const logsWithUserInfo = await Promise.all(
-      logs.map(async (log) => {
-        try {
-          const userResult = await dynamoDB.send(
-            new GetCommand({ TableName: TABLES.Users, Key: { userId: log.changedBy } }),
-          );
-          return {
-            ...log,
-            userName: userResult.Item ? userResult.Item['name'] : 'Unknown User',
-          };
-        } catch (err) {
-          return { ...log, userName: 'Unknown User' };
-        }
-      }),
-    );
-
-    return logsWithUserInfo;
-  }
-
-  private async logStatusChange(
-    taskId: string,
-    changedBy: string,
-    oldStatus: string,
-    newStatus: string,
-  ) {
-    await dynamoDB.send(
-      new PutCommand({
-        TableName: TABLES.ActivityLog,
-        Item: {
-          taskId,
-          timestamp: new Date().toISOString(),
-          eventType: 'STATUS_CHANGED',
-          changedBy,
-          oldStatus,
-          newStatus,
-        },
-      }),
-    );
-  }
-
 
   async getGlobalStats() {
     const result = await dynamoDB.send(new ScanCommand({ TableName: TABLES.Tasks }));
@@ -525,5 +718,63 @@ export class TasksService {
       closedTasks,
       teamStats,
     };
+  }
+
+  async getActivityLogs(taskId: string, user: RequestUser) {
+    // Ensures server-side team isolation (employees can't access other-team tasks)
+    await this.findOne(taskId, user);
+
+    try {
+      const result = await dynamoDB.send(
+        new QueryCommand({
+          TableName: TABLES.ActivityLog,
+          KeyConditionExpression: '#taskId = :taskId',
+          ExpressionAttributeNames: { '#taskId': 'taskId' },
+          ExpressionAttributeValues: { ':taskId': taskId },
+          ScanIndexForward: true,
+        }),
+      );
+      return result.Items || [];
+    } catch (err) {
+      // Fallback if ActivityLog isn't keyed in a way that supports Query
+      const result = await dynamoDB.send(
+        new ScanCommand({
+          TableName: TABLES.ActivityLog,
+          FilterExpression: '#taskId = :taskId',
+          ExpressionAttributeNames: { '#taskId': 'taskId' },
+          ExpressionAttributeValues: { ':taskId': taskId },
+        }),
+      );
+      const items = result.Items || [];
+      items.sort((a: any, b: any) => String(a.timestamp).localeCompare(String(b.timestamp)));
+      return items;
+    }
+  }
+
+  private async logStatusChange(
+    taskId: string,
+    changedBy: string,
+    oldStatus: string,
+    newStatus: string,
+  ) {
+    // Fetch the user's name
+    const userResult = await dynamoDB.send(
+      new GetCommand({ TableName: TABLES.Users, Key: { userId: changedBy } }),
+    );
+    const userName = userResult.Item?.name || 'Unknown';
+
+    await dynamoDB.send(
+      new PutCommand({
+        TableName: TABLES.ActivityLog,
+        Item: {
+          taskId,
+          timestamp: new Date().toISOString(),
+          changedBy,
+          userName,  // 👈 save the name
+          oldStatus,
+          newStatus,
+        },
+      }),
+    );
   }
 }

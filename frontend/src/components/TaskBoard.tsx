@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import toast from 'react-hot-toast';
 import {
   Box,
   Typography,
@@ -50,15 +51,19 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import api from '../api';
-import type { Task } from '../api/interface';
+import type { Task, User, Team } from '../api/interface';
 import { tokens } from '../theme/theme';
 
 interface TaskBoardProps {
   teamId?: string;
+  projectId?: string;
+  searchQuery?: string;
   role: 'manager' | 'employee';
   refreshKey?: number;
   onTaskClick?: (task: Task) => void;
   onAddTask?: (status: Task['status']) => void;
+  users?: User[];
+  teams?: Team[];
 }
 
 const priorityColorMap: Record<string, string> = {
@@ -75,9 +80,26 @@ interface SortableTaskCardProps {
   onSubmit?: (taskId: string) => void;
   onApprove?: (taskId: string) => void;
   onReject?: (taskId: string) => void;
+  users: User[];
+  teams: Team[];
 }
 
-const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, role, onClick, onStart, onSubmit, onApprove, onReject }) => {
+const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, role, onClick, onStart, onSubmit, onApprove, onReject, users, teams }) => {
+  const isDragDisabled = role === 'employee' && (task.status === 'in-review' || task.status === 'done');
+
+  const assignee = task.assigneeId ? users.find(u => u.userId === task.assigneeId) : undefined;
+  const team = task.teamId ? teams.find(t => t.teamId === task.teamId) : undefined;
+
+  const displayInitials = assignee
+    ? assignee.name.substring(0, 2).toUpperCase()
+    : (task.assigneeId
+        ? task.assigneeId.substring(0, 2).toUpperCase()
+        : (team ? team.name.substring(0, 2).toUpperCase() : '?'));
+
+  const displayTitle = assignee
+    ? `Assignee: ${assignee.name}`
+    : (team ? `Team: ${team.name}` : 'Unassigned');
+
   const {
     attributes,
     listeners,
@@ -85,7 +107,11 @@ const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, role, onClick
     transform,
     transition,
     isDragging
-  } = useSortable({ id: task.taskId, data: { task } });
+  } = useSortable({
+    id: task.taskId,
+    data: { task },
+    disabled: isDragDisabled
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -108,19 +134,19 @@ const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, role, onClick
       }}
       sx={{
         p: 2.5,
-        cursor: 'grab',
+        cursor: isDragDisabled ? 'default' : 'grab',
         bgcolor: 'rgba(18, 22, 32, 0.8)',
         borderRadius: '24px',
         border: '1px solid rgba(148, 163, 184, 0.1)',
         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
         position: 'relative',
         '&:hover': {
-          transform: 'translateY(-4px) scale(1.01)',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-          borderColor: tokens.secondaryMain,
-          bgcolor: 'rgba(22, 28, 40, 1)'
+          transform: isDragDisabled ? 'none' : 'translateY(-4px) scale(1.01)',
+          boxShadow: isDragDisabled ? 'none' : '0 20px 40px rgba(0,0,0,0.5)',
+          borderColor: isDragDisabled ? 'rgba(148, 163, 184, 0.1)' : tokens.secondaryMain,
+          bgcolor: isDragDisabled ? 'rgba(18, 22, 32, 0.8)' : 'rgba(22, 28, 40, 1)'
         },
-        '&:active': { cursor: 'grabbing' },
+        '&:active': { cursor: isDragDisabled ? 'default' : 'grabbing' },
       }}
     >
       <Typography sx={{ fontWeight: 600, mb: 1.5, fontSize: '0.95rem', color: 'text.primary', lineHeight: 1.4 }}>
@@ -157,14 +183,15 @@ const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, role, onClick
           sx={{
             width: 28,
             height: 28,
-            bgcolor: tokens.bgElevated,
-            border: '1px solid rgba(255,255,255,0.1)',
+            bgcolor: assignee ? tokens.bgElevated : 'rgba(168, 85, 247, 0.2)',
+            border: assignee ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(168, 85, 247, 0.4)',
             fontSize: '0.7rem',
             fontWeight: 800,
-            color: tokens.textPrimary
+            color: assignee ? tokens.textPrimary : 'rgb(216, 180, 254)'
           }}
+          title={displayTitle}
         >
-          {task.assigneeId ? task.assigneeId.substring(0, 2).toUpperCase() : '?'}
+          {displayInitials}
         </Avatar>
       </Box>
 
@@ -262,10 +289,12 @@ interface TaskColumnProps {
   onSubmitTask: (taskId: string) => void;
   onApproveTask: (taskId: string) => void;
   onRejectTask: (taskId: string) => void;
+  users: User[];
+  teams: Team[];
 }
 
 const TaskColumn: React.FC<TaskColumnProps> = ({
-  id, title, icon, tasks, role, onAddTask, onTaskClick, onStartTask, onSubmitTask, onApproveTask, onRejectTask
+  id, title, icon, tasks, role, onAddTask, onTaskClick, onStartTask, onSubmitTask, onApproveTask, onRejectTask, users, teams
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -303,17 +332,19 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
             {title}
           </Typography>
         </Box>
-        <IconButton
-          size="small"
-          onClick={() => onAddTask?.(id as Task['status'])}
-          sx={{
-            bgcolor: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '8px',
-            '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.1)' }
-          }}
-        >
-          <AddRounded fontSize="small" />
-        </IconButton>
+        {role === 'manager' && (
+          <IconButton
+            size="small"
+            onClick={() => onAddTask?.(id as Task['status'])}
+            sx={{
+              bgcolor: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: '8px',
+              '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.1)' }
+            }}
+          >
+            <AddRounded fontSize="small" />
+          </IconButton>
+        )}
       </Box>
 
       <SortableContext
@@ -333,6 +364,8 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
                 onSubmit={onSubmitTask}
                 onApprove={onApproveTask}
                 onReject={onRejectTask}
+                users={users}
+                teams={teams}
               />
             ))
           ) : (
@@ -359,7 +392,17 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
   );
 };
 
-export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, onTaskClick, onAddTask }) => {
+export const TaskBoard: React.FC<TaskBoardProps> = ({
+  teamId,
+  projectId,
+  searchQuery,
+  role,
+  refreshKey,
+  onTaskClick,
+  onAddTask,
+  users = [],
+  teams = []
+}) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -382,23 +425,34 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const data = await api.tasks.getAll({ teamId: teamId });
-      setTasks(data as any);
+
+      const me = await api.users.getMe() as any;
+
+      const data =
+        me.role === 'manager'
+          ? await api.tasks.getAll(teamId ? { teamId } : undefined)
+          : await api.tasks.getAllByUser(me.userId);
+
+      setTasks(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error('Failed to fetch tasks', err);
+      const fail = 'Failed to fetch tasks ';
+      toast.error(fail + err);
+      console.error(fail, err);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchTasks(); }, [teamId, role, refreshKey]);
+  useEffect(() => { fetchTasks(); }, [teamId, refreshKey]);
 
   const handleStartTask = async (taskId: string) => {
     try {
       await api.tasks.start(taskId);
       setTasks(prev => prev.map(t => t.taskId === taskId ? { ...t, status: 'in-progress' } : t));
     } catch (error) {
-      console.error('Failed to start task', error);
+      const fail = 'Failed to start task ';
+      toast.error(fail + error)
+      console.error(fail, error);
       fetchTasks();
     }
   };
@@ -408,17 +462,23 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
       await api.tasks.submit(taskId);
       setTasks(prev => prev.map(t => t.taskId === taskId ? { ...t, status: 'in-review' } : t));
     } catch (error) {
-      console.error('Failed to submit task', error);
+      const fail = 'Failed to submit task '
+      toast.error(fail + error)
+      console.error(fail, error);
       fetchTasks();
     }
   };
 
   const handleApproveTask = async (taskId: string) => {
     try {
-      await api.tasks.approve(taskId);
-      setTasks(prev => prev.map(t => t.taskId === taskId ? { ...t, status: 'done' } : t));
+      if (role === 'manager') {
+        await api.tasks.approve(taskId);
+        setTasks(prev => prev.map(t => t.taskId === taskId ? { ...t, status: 'done' } : t));
+      }
     } catch (error) {
-      console.error('Failed to approve task', error);
+      const fail = 'Failed to approve task '
+      toast.error(fail + error)
+      console.error(fail, error);
       fetchTasks();
     }
   };
@@ -444,7 +504,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
       setTasks(prev => prev.map(t => t.taskId === rejectingTaskId ? { ...t, status: 'in-progress' } : t));
       setRejectingTaskId(null);
     } catch (error) {
-      console.error('Failed to reject task', error);
+      const fail = 'Failed to reject task '
+      toast.error(fail + error)
+      console.error(fail, error);
       fetchTasks();
     } finally {
       setIsRejecting(false);
@@ -475,23 +537,37 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
     const activeId = active.id as string;
     const overId = over.id as string;
 
+    if (activeId === overId) return; // 👈 add this
+
     const activeContainer = findContainer(activeId);
     const overContainer = findContainer(overId);
 
-    if (!activeContainer || !overContainer || activeContainer === overContainer) {
-      return;
+    if (!activeContainer || !overContainer || activeContainer === overContainer) return;
+
+    // Enforce employee restrictions in drag over
+    if (role === 'employee') {
+      const allowedTransitions: Record<string, string> = {
+        'todo': 'in-progress',
+        'in-progress': 'in-review',
+      };
+      if (allowedTransitions[activeContainer] !== overContainer) {
+        return;
+      }
     }
 
     setTasks((prev) => {
       const activeIndex = prev.findIndex((t) => t.taskId === activeId);
+
+      if (activeIndex === -1) return prev; // 👈 add this — task not found, don't update
+
       const overIndex = prev.findIndex((t) => t.taskId === overId);
 
-      let newIndex;
-      if (['todo', 'in-progress', 'in-review', 'done'].includes(overId)) {
-        newIndex = prev.length;
-      } else {
-        newIndex = overIndex >= 0 ? overIndex : prev.length;
-      }
+      const newIndex = ['todo', 'in-progress', 'in-review', 'done'].includes(overId)
+        ? prev.length
+        : overIndex >= 0 ? overIndex : prev.length;
+
+      // 👇 Don't update if status is already correct
+      if (prev[activeIndex].status === overContainer) return prev;
 
       const updatedTask = { ...prev[activeIndex], status: overContainer as Task['status'] };
       const newTasks = [...prev];
@@ -518,8 +594,23 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
     const initialStatus = startStatusRef.current;
 
     if (initialStatus && overContainer && initialStatus !== overContainer) {
+      // Enforce employee restrictions in drag end
+      if (role === 'employee') {
+        const allowedTransitions: Record<string, string> = {
+          'todo': 'in-progress',
+          'in-progress': 'in-review',
+        };
+        if (allowedTransitions[initialStatus] !== overContainer) {
+          toast.error('Invalid status transition for team members');
+          fetchTasks();
+          startStatusRef.current = null;
+          return;
+        }
+      }
+
       // Sync with API
       try {
+        console.log("Meow")
         if (initialStatus === 'todo' && overContainer === 'in-progress') {
           await api.tasks.start(activeId);
         } else if (initialStatus === 'in-progress' && overContainer === 'in-review') {
@@ -532,7 +623,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
           await api.tasks.update(activeId, { status: overContainer });
         }
       } catch (error) {
-        console.error('Failed to sync status', error);
+        const fail = 'Failed to sync status '
+        toast.error(fail + error)
+        console.error(fail, error);
         fetchTasks();
       }
     } else if (active.id !== over.id) {
@@ -576,6 +669,19 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
     );
   }
 
+  const filteredTasks = tasks.filter(t => {
+    // Filter by teamId if provided
+    if (teamId && t.teamId !== teamId) return false;
+
+    // Filter by projectId if provided
+    if (projectId && t.projectId !== projectId) return false;
+
+    // Filter by searchQuery if provided
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (t.title?.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q));
+  });
+
   return (
     <>
       <DndContext
@@ -592,7 +698,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
               id={col.id}
               title={col.title}
               icon={col.icon}
-              tasks={tasks.filter(t => t.status === col.id)}
+              tasks={filteredTasks.filter(t => t.status === col.id)}
               role={role}
               onAddTask={onAddTask}
               onTaskClick={onTaskClick}
@@ -600,6 +706,8 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
               onSubmitTask={handleSubmitTask}
               onApproveTask={handleApproveTask}
               onRejectTask={handleRejectTask}
+              users={users}
+              teams={teams}
             />
           ))}
         </Box>
@@ -617,6 +725,8 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
               task={activeTask}
               role={role}
               onClick={() => { }}
+              users={users}
+              teams={teams}
             />
           ) : null}
         </DragOverlay>

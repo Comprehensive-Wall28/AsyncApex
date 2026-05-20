@@ -39,6 +39,7 @@ import type { Task, User, Team, Project, ActivityLog, Comment } from '../api/int
 import { S3Image } from './S3Image';
 import { tokens } from '../theme/theme';
 import { useAuth } from '../hooks/useAuth';
+import toast from 'react-hot-toast';
 
 interface TaskViewModalProps {
   open: boolean;
@@ -96,7 +97,9 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
       const data = await api.tasks.getOne(taskId);
       setTask(data as any);
     } catch (err) {
-      console.error('Failed to fetch task details', err);
+      const fail = 'Failed to fetch task details '
+      toast.error(fail + err)
+      console.error(fail, err);
     } finally {
       setLoading(false);
     }
@@ -104,10 +107,14 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
 
   const fetchLogs = async (taskId: string) => {
     try {
-      const data = await api.tasks.getLogs(taskId);
-      setLogs(data as any);
+      const response = await api.tasks.getLogs(taskId) as any;
+      const data = response.data ?? response;
+      setLogs(Array.isArray(data) ? data : []);
+      console.log("1")
     } catch (err) {
-      console.error('Failed to fetch logs', err);
+      const fail = 'Failed to fetch logs ';
+      toast.error(fail + err);
+      console.error(fail, err);
     }
   };
 
@@ -119,7 +126,11 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
       const sorted = (data as Comment[]).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
       setComments(sorted);
     } catch (err) {
+      const fail = 'Failed to fetch comments '
       console.error('Failed to fetch comments', err);
+      toast.error('Failed to fetch comments ' + err);
+      toast.error(fail + err)
+      console.error(fail, err);
     } finally {
       setCommentsLoading(false);
     }
@@ -137,7 +148,9 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
       setComments(prev => [...prev, newComment as any]);
       setCommentText('');
     } catch (err) {
-      console.error('Failed to post comment', err);
+      const fail = 'Failed to post comment '
+      toast.error(fail + err)
+      console.error(fail, err);
     } finally {
       setIsPostingComment(false);
     }
@@ -149,7 +162,9 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
       await api.comments.delete(commentId);
       setComments(prev => prev.filter(c => c.commentId !== commentId));
     } catch (err) {
-      console.error('Failed to delete comment', err);
+      const fail = 'Failed to delete comment '
+      toast.error(fail + err)
+      console.error(fail, err);
     }
   };
 
@@ -163,7 +178,9 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
       onDelete?.();
       onClose();
     } catch (err) {
-      console.error('Failed to delete task', err);
+      const fail = 'Failed to delete task '
+      toast.error(fail + err)
+      console.error(fail, err);
       alert('Failed to delete task. Please try again.');
     } finally {
       setIsDeleting(false);
@@ -178,7 +195,9 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
       setTask(prev => prev ? { ...prev, status: 'done' } : undefined);
       fetchLogs(task.taskId);
     } catch (err) {
-      console.error('Failed to approve task', err);
+      const fail = 'Failed to approve task '
+      toast.error(fail + err)
+      console.error(fail, err);
     } finally {
       setIsApproving(false);
     }
@@ -199,7 +218,9 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
       fetchLogs(task.taskId);
       fetchComments(task.taskId);
     } catch (err) {
-      console.error('Failed to reject task', err);
+      const fail = 'Failed to reject task '
+      toast.error(fail + err)
+      console.error(fail, err);
     } finally {
       setIsRejecting(false);
     }
@@ -263,14 +284,16 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
                 <Divider orientation="vertical" flexItem sx={{ mx: 1, opacity: 0.1 }} />
               </>
             )}
-            <Button
-              variant="outlined"
-              startIcon={<EditRounded />}
-              onClick={onEdit}
-              sx={{ borderRadius: '12px', px: 2 }}
-            >
-              Edit
-            </Button>
+            {role === 'manager' && (
+              <Button
+                variant="outlined"
+                startIcon={<EditRounded />}
+                onClick={onEdit}
+                sx={{ borderRadius: '12px', px: 2 }}
+              >
+                Edit
+              </Button>
+            )}
             {role === 'manager' && (
               <IconButton
                 color="error"
@@ -365,12 +388,39 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
                     </Stack>
                   </Grid>
                   <Grid size={{ xs: 12, md: 6 }}>
-                    <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800, mb: 1, display: 'block' }}>Assignee</Typography>
+                    <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800, mb: 1, display: 'block' }}>
+                      Assignee
+                    </Typography>
+
                     <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-                      <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.dark', fontSize: '0.875rem', fontWeight: 800 }}>
-                        {assignee ? assignee.name.substring(0, 2).toUpperCase() : '?'}
+                      <Avatar
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          bgcolor: assignee ? 'primary.dark' : 'rgba(168, 85, 247, 0.2)',
+                          border: assignee ? 'none' : '1px solid rgba(168, 85, 247, 0.4)',
+                          fontSize: '0.875rem',
+                          fontWeight: 800,
+                          color: assignee ? 'white' : 'rgb(216, 180, 254)'
+                        }}
+                      >
+                        {assignee
+                          ? assignee.name.substring(0, 2).toUpperCase()
+                          : (team ? team.name.substring(0, 2).toUpperCase() : '?')}
                       </Avatar>
-                      <Typography sx={{ fontWeight: 700 }}>{assignee ? assignee.name : 'Unassigned'}</Typography>
+
+                      <Box>
+                        <Typography sx={{ fontWeight: 700 }}>
+                          {assignee
+                            ? assignee.name
+                            : (team ? `${team.name} (Team)` : 'Unassigned')}
+                        </Typography>
+                        {!assignee && team && (
+                          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: -0.25 }}>
+                            Task belongs to the entire team
+                          </Typography>
+                        )}
+                      </Box>
                     </Stack>
                   </Grid>
                 </Grid>
@@ -491,10 +541,23 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
                         <Box key={idx} sx={{ position: 'relative' }}>
                           <Box sx={{ position: 'absolute', left: -27, top: 6, width: 10, height: 10, borderRadius: '50%', bgcolor: idx === 0 ? tokens.secondaryMain : 'rgba(255,255,255,0.2)', border: '2px solid background.default', zIndex: 1 }} />
                           <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', mb: 0.5 }}>
-                            {log.userName || 'Someone'} moved task from{' '}
-                            <Box component="span" sx={{ color: tokens.textSecondary, textTransform: 'uppercase', fontSize: '0.75rem' }}>{log.oldStatus}</Box>
-                            {' to '}
-                            <Box component="span" sx={{ color: tokens.secondaryMain, fontWeight: 700, textTransform: 'uppercase', fontSize: '0.75rem' }}>{log.newStatus}</Box>
+                            {(log as any).eventType === 'TASK_ASSIGNED' || (log as any).assigneeEmail || (log as any).assigneeName ? (
+                              <>
+                                Task assigned to{' '}
+                                <Box component="span" sx={{ color: tokens.secondaryMain, fontWeight: 700 }}>
+                                  {(log as any).assigneeName || (log as any).assigneeEmail || 'Someone'}
+                                </Box>
+                              </>
+                            ) : log.oldStatus && log.newStatus ? (
+                              <>
+                                {log.userName || 'Someone'} moved task from{' '}
+                                <Box component="span" sx={{ color: tokens.textSecondary, textTransform: 'uppercase', fontSize: '0.75rem' }}>{log.oldStatus}</Box>
+                                {' to '}
+                                <Box component="span" sx={{ color: tokens.secondaryMain, fontWeight: 700, textTransform: 'uppercase', fontSize: '0.75rem' }}>{log.newStatus}</Box>
+                              </>
+                            ) : (
+                              <>{log.userName || 'Someone'} updated the task</>
+                            )}
                           </Typography>
                           <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block' }}>
                             {new Date(log.timestamp).toLocaleString()}

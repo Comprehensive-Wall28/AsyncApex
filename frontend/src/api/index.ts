@@ -13,10 +13,12 @@ export const api = {
     update: (id: string, data: any) => client.patch(`/teams/${id}`, data),
     delete: (id: string) => client.delete(`/teams/${id}`),
     addUser: (teamId: string, userId: string) => client.post(`/teams/${teamId}/users`, { userId }),
+    getTeamUsers: (teamId: string) => client.get(`/teams/${teamId}/users`),
   },
   tasks: {
     getAll: (params?: { teamId?: string; assigneeId?: string; status?: string; projectId?: string }) =>
       client.get('/tasks', { params }),
+    getAllByUser: (userId: string) => client.get(`/tasks/by-user/${userId}`),
     getOne: (id: string) => client.get(`/tasks/${id}`),
     create: (data: any) => client.post('/tasks', data),
     // For file uploads, we need to skip the default JSON Content-Type
@@ -86,6 +88,7 @@ export const api = {
   users: {
     getAll: () => client.get('/users'),
     getOne: (id: string) => client.get(`/users/${id}`),
+    getMe: () => client.get(`/users/me`),
   },
 
   auth: {

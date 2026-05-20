@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Skeleton } from '@mui/material';
 import api from '../api';
 
-interface S3ImageProps {
+export interface S3ImageProps {
   imageKey: string;
   alt?: string;
   sx?: any;

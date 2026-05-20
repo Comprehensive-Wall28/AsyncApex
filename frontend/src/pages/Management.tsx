@@ -113,7 +113,7 @@ export const Management: React.FC = () => {
           Management Console
         </Typography>
         {tabValue === 0 && (
-          <Button variant="contained" startIcon={<AddRounded />} onClick={() => { navigate('/teams/new') }}>
+          <Button variant="contained" startIcon={<AddRounded />} onClick={() => { setSelectedTeam(null); setTeamModalOpen(true); }}>
             Create Team
           </Button>
         )}

@@ -56,6 +56,7 @@ import { tokens } from '../theme/theme';
 
 interface TaskBoardProps {
   teamId?: string;
+  projectId?: string;
   searchQuery?: string;
   role: 'manager' | 'employee';
   refreshKey?: number;
@@ -393,6 +394,7 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
 
 export const TaskBoard: React.FC<TaskBoardProps> = ({
   teamId,
+  projectId,
   searchQuery,
   role,
   refreshKey,
@@ -670,6 +672,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
   const filteredTasks = tasks.filter(t => {
     // Filter by teamId if provided
     if (teamId && t.teamId !== teamId) return false;
+
+    // Filter by projectId if provided
+    if (projectId && t.projectId !== projectId) return false;
 
     // Filter by searchQuery if provided
     if (!searchQuery) return true;

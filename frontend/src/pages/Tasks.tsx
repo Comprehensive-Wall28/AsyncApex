@@ -32,6 +32,7 @@ export const Tasks: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<Task | undefined>(undefined);
   const [boardRefreshKey, setBoardRefreshKey] = useState(0);
   const [selectedTeamId, setSelectedTeamId] = useState<string | undefined>(undefined);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(undefined);
 
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -157,6 +158,35 @@ export const Tasks: React.FC = () => {
             </FormControl>
           )}
 
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <Select
+              value={selectedProjectId || 'all'}
+              onChange={(e) => setSelectedProjectId(e.target.value === 'all' ? undefined : e.target.value)}
+              displayEmpty
+              startAdornment={<FilterListRounded sx={{ color: 'text.secondary', mr: 1, fontSize: 18 }} />}
+              sx={{
+                borderRadius: '12px',
+                bgcolor: 'rgba(255, 255, 255, 0.03)',
+                color: 'text.primary',
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.1)' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.2)' },
+                '& .MuiSelect-select': { py: 1, px: 2 },
+              }}
+              renderValue={(selected) => {
+                if (selected === 'all') return 'All Projects';
+                const project = projects.find(p => p.projectId === selected);
+                return project ? project.name : 'Unknown Project';
+              }}
+            >
+              <MenuItem value="all">All Projects</MenuItem>
+              {projects.map((project) => (
+                <MenuItem key={project.projectId} value={project.projectId}>
+                  {project.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
           <Button
             variant="outlined"
             startIcon={<TuneRounded />}
@@ -194,6 +224,7 @@ export const Tasks: React.FC = () => {
       <Box>
         <TaskBoard
           teamId={isManager ? selectedTeamId : user?.teamId}
+          projectId={selectedProjectId}
           searchQuery={searchQuery}
           role={user?.role || 'employee'}
           refreshKey={boardRefreshKey}

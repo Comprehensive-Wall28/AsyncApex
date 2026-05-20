@@ -47,19 +47,54 @@ export class TasksService {
   ) { }
 
   async create(dto: CreateTaskDto, user: RequestUser, file?: Express.Multer.File) {
-    const assigneeResult = dto.assigneeId ? await dynamoDB.send(
-      new GetCommand({ TableName: TABLES.Users, Key: { userId: dto.assigneeId } }),
-    ) : null;
-    if (dto.assigneeId && !assigneeResult?.Item) throw new NotFoundException('Assignee not found');
-    const assignee = assigneeResult?.Item;
-    const teamResult = dto.teamId ? await dynamoDB.send(
-      new GetCommand({ TableName: TABLES.Teams, Key: { teamId: dto.teamId } }),
-    ) : null;
+    const hasAssignee = !!dto.assigneeId;
+    const hasTeam = !!dto.teamId;
+
+    if (hasAssignee === hasTeam) {
+      throw new BadRequestException(
+        'You must provide either assigneeId or teamId, but not both.',
+      );
+    }
+
+    let assignee: Record<string, any> | undefined;
+
+    if (dto.assigneeId) {
+      const assigneeResult = await dynamoDB.send(
+        new GetCommand({
+          TableName: TABLES.Users,
+          Key: { userId: dto.assigneeId },
+        }),
+      );
+
+      if (!assigneeResult.Item) {
+        throw new NotFoundException('Assignee not found');
+      }
+
+      assignee = assigneeResult.Item;
+    }
+
+    if (dto.teamId) {
+      const teamResult = await dynamoDB.send(
+        new GetCommand({
+          TableName: TABLES.Teams,
+          Key: { teamId: dto.teamId },
+        }),
+      );
+
+      if (!teamResult.Item) {
+        throw new NotFoundException('Team not found');
+      }
+    }
 
     const projectResult = await dynamoDB.send(
       new GetCommand({ TableName: TABLES.Projects, Key: { projectId: dto.projectId } }),
     );
-    if (!projectResult.Item) throw new NotFoundException('Project not found');
+
+    if (!projectResult.Item) {
+      throw new NotFoundException('Project not found');
+    }
+
+    const taskTeamId = dto.teamId || (assignee ? assignee['teamId'] : undefined);
 
     let imageKey: string | undefined;
     if (file) {
@@ -75,8 +110,8 @@ export class TasksService {
       status: 'todo' as const,
       priority: dto.priority,
       deadline: dto.deadline,
-      ...(dto.assigneeId?.trim() ? { assigneeId: dto.assigneeId.trim() } : {}),
-      ...(dto.teamId?.trim() ? { teamId: dto.teamId.trim() } : {}),
+      ...(dto.assigneeId ? { assigneeId: dto.assigneeId } : {}),
+      teamId: taskTeamId,
       projectId: dto.projectId,
       ...(imageKey ? { imageKey } : {}),
       createdBy: user.userId,
@@ -84,18 +119,28 @@ export class TasksService {
       updatedAt: now,
     };
 
-    await dynamoDB.send(new PutCommand({ TableName: TABLES.Tasks, Item: task }));
+    await dynamoDB.send(
+      new PutCommand({
+        TableName: TABLES.Tasks,
+        Item: task,
+      }),
+    );
 
-    try {
-      await this.notificationsService.publishTaskAssignment({
-        taskId: task.taskId,
-        taskTitle: dto.title,
-        assigneeEmail: assignee['email'],
-        assigneeName: assignee['name'],
-        teamId: dto.teamId,
-      });
-    } catch (err) {
-      this.logger.warn(`Failed to send assignment notification: ${err}`);
+    await this.cloudWatchService.publishTaskCreated(taskTeamId);
+
+    if (assignee) {
+      try {
+        await this.notificationsService.publishTaskAssignment({
+          taskId: task.taskId,
+          taskTitle: dto.title,
+          assigneeEmail: assignee['email'],
+          assigneeName: assignee['name'],
+          teamId: taskTeamId,
+        });
+        await this.cloudWatchService.publishTaskAssigned(taskTeamId);
+      } catch (err) {
+        this.logger.warn(`Failed to send assignment notification: ${err}`);
+      }
     }
 
     return task;

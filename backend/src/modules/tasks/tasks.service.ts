@@ -45,14 +45,8 @@ export class TasksService {
   ) {}
 
   async create(dto: CreateTaskDto, user: RequestUser, file?: Express.Multer.File) {
-    let assignee: Record<string, any> | undefined;
-    if (dto.assigneeId) {
-      const assigneeResult = await dynamoDB.send(
-        new GetCommand({ TableName: TABLES.Users, Key: { userId: dto.assigneeId } }),
-      );
-      if (!assigneeResult.Item) throw new NotFoundException('Assignee not found');
-      assignee = assigneeResult.Item;
-    }
+    const hasAssignee = !!dto.assigneeId;
+    const hasTeam = !!dto.teamId;
 
     if (hasAssignee === hasTeam) {
       throw new BadRequestException(
@@ -60,7 +54,7 @@ export class TasksService {
       );
     }
 
-    let assignee: any = null;
+    let assignee: Record<string, any> | undefined;
 
     if (dto.assigneeId) {
       const assigneeResult = await dynamoDB.send(
@@ -99,9 +93,9 @@ export class TasksService {
 
     if (!projectResult.Item) {
       throw new NotFoundException('Project not found');
-    if (assignee && assignee['teamId'] !== dto.teamId) {
-      throw new BadRequestException('Assignee does not belong to this team');
     }
+
+    const taskTeamId = dto.teamId || (assignee ? assignee['teamId'] : undefined);
 
     let imageKey: string | undefined;
 
@@ -120,7 +114,7 @@ export class TasksService {
       priority: dto.priority,
       deadline: dto.deadline,
       ...(dto.assigneeId ? { assigneeId: dto.assigneeId } : {}),
-      teamId: dto.teamId,
+      teamId: taskTeamId,
       projectId: dto.projectId,
       ...(imageKey ? { imageKey } : {}),
       createdBy: user.userId,
@@ -135,7 +129,7 @@ export class TasksService {
       }),
     );
 
-    await this.cloudWatchService.publishTaskCreated(dto.teamId);
+    await this.cloudWatchService.publishTaskCreated(taskTeamId);
 
     if (assignee) {
       try {
@@ -144,9 +138,9 @@ export class TasksService {
           taskTitle: dto.title,
           assigneeEmail: assignee['email'],
           assigneeName: assignee['name'],
-          teamId: dto.teamId,
+          teamId: taskTeamId,
         });
-        await this.cloudWatchService.publishTaskAssigned(dto.teamId);
+        await this.cloudWatchService.publishTaskAssigned(taskTeamId);
       } catch (err) {
         this.logger.warn(`Failed to send assignment notification: ${err}`);
       }

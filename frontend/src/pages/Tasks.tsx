@@ -194,6 +194,7 @@ export const Tasks: React.FC = () => {
       <Box>
         <TaskBoard
           teamId={isManager ? selectedTeamId : user?.teamId}
+          searchQuery={searchQuery}
           role={user?.role || 'employee'}
           refreshKey={boardRefreshKey}
           onTaskClick={(task) => {

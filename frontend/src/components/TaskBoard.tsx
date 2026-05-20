@@ -56,6 +56,7 @@ import { tokens } from '../theme/theme';
 
 interface TaskBoardProps {
   teamId?: string;
+  searchQuery?: string;
   role: 'manager' | 'employee';
   refreshKey?: number;
   onTaskClick?: (task: Task) => void;
@@ -368,7 +369,7 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
   );
 };
 
-export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, onTaskClick, onAddTask }) => {
+export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, searchQuery, role, refreshKey, onTaskClick, onAddTask }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -396,7 +397,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
 
       const data =
         me.role === 'manager'
-          ? await api.tasks.getAll()
+          ? await api.tasks.getAll(teamId ? { teamId } : undefined)
           : await api.tasks.getAllByUser(me.userId);
 
       setTasks(Array.isArray(data) ? data : []);
@@ -635,6 +636,16 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
     );
   }
 
+  const filteredTasks = tasks.filter(t => {
+    // Filter by teamId if provided
+    if (teamId && t.teamId !== teamId) return false;
+
+    // Filter by searchQuery if provided
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (t.title?.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q));
+  });
+
   return (
     <>
       <DndContext
@@ -651,7 +662,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
               id={col.id}
               title={col.title}
               icon={col.icon}
-              tasks={tasks.filter(t => t.status === col.id)}
+              tasks={filteredTasks.filter(t => t.status === col.id)}
               role={role}
               onAddTask={onAddTask}
               onTaskClick={onTaskClick}

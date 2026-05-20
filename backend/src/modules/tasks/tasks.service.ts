@@ -153,6 +153,8 @@ export class TasksService {
           assigneeEmail: assignee['email'],
           assigneeName: assignee['name'],
           teamId: taskTeamId,
+          assigneeId: dto.assigneeId,
+          assignedBy: user.userId,
         });
         await this.cloudWatchService.publishTaskAssigned(taskTeamId);
       } catch (err) {
@@ -235,6 +237,42 @@ export class TasksService {
 
     const isMarkingDone = dto.status === 'done' && task['status'] !== 'done';
 
+    // Handle assignee update validation
+    let assignee: Record<string, any> | undefined;
+    let newTeamId: string | undefined;
+
+    if (dto.assigneeId && dto.assigneeId !== task['assigneeId']) {
+      const assigneeResult = await dynamoDB.send(
+        new GetCommand({
+          TableName: TABLES.Users,
+          Key: { userId: dto.assigneeId },
+        }),
+      );
+
+      if (!assigneeResult.Item) {
+        throw new NotFoundException('Assignee not found');
+      }
+
+      assignee = assigneeResult.Item;
+
+      if (!assignee['teamId']) {
+        throw new BadRequestException('Assignee must belong to a team');
+      }
+
+      const teamResult = await dynamoDB.send(
+        new GetCommand({
+          TableName: TABLES.Teams,
+          Key: { teamId: assignee['teamId'] },
+        }),
+      );
+
+      if (!teamResult.Item) {
+        throw new NotFoundException('Assignee team not found');
+      }
+
+      newTeamId = assignee['teamId'];
+    }
+
     // Handle image replacement (retain the previous image version in S3)
     let newImageKey: string | undefined;
     if (file && !isMarkingDone) {
@@ -244,6 +282,7 @@ export class TasksService {
 
     const setData: Record<string, any> = {
       ...dto,
+      ...(newTeamId ? { teamId: newTeamId } : {}),
       ...(newImageKey ? { imageKey: newImageKey } : {}),
       updatedAt: new Date().toISOString(),
     };
@@ -274,6 +313,24 @@ export class TasksService {
         ReturnValues: 'ALL_NEW',
       }),
     );
+
+    // Send SNS and publish CloudWatch metric on successful reassignment/assignment
+    if (assignee && newTeamId) {
+      try {
+        await this.notificationsService.publishTaskAssignment({
+          taskId,
+          taskTitle: dto.title || task['title'],
+          assigneeEmail: assignee['email'],
+          assigneeName: assignee['name'],
+          teamId: newTeamId,
+          assigneeId: dto.assigneeId!,
+          assignedBy: user.userId,
+        });
+        await this.cloudWatchService.publishTaskAssigned(newTeamId);
+      } catch (err) {
+        this.logger.warn(`Failed to send assignment notification for task ${taskId}: ${err}`);
+      }
+    }
 
     if (dto.status && dto.status !== task['status']) {
       await this.logStatusChange(taskId, user.userId, task['status'], dto.status);

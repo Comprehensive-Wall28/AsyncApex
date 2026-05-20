@@ -527,10 +527,23 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
                         <Box key={idx} sx={{ position: 'relative' }}>
                           <Box sx={{ position: 'absolute', left: -27, top: 6, width: 10, height: 10, borderRadius: '50%', bgcolor: idx === 0 ? tokens.secondaryMain : 'rgba(255,255,255,0.2)', border: '2px solid background.default', zIndex: 1 }} />
                           <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', mb: 0.5 }}>
-                            {log.userName || 'Someone'} moved task from{' '}
-                            <Box component="span" sx={{ color: tokens.textSecondary, textTransform: 'uppercase', fontSize: '0.75rem' }}>{log.oldStatus}</Box>
-                            {' to '}
-                            <Box component="span" sx={{ color: tokens.secondaryMain, fontWeight: 700, textTransform: 'uppercase', fontSize: '0.75rem' }}>{log.newStatus}</Box>
+                            {(log as any).eventType === 'TASK_ASSIGNED' || (log as any).assigneeEmail || (log as any).assigneeName ? (
+                              <>
+                                Task assigned to{' '}
+                                <Box component="span" sx={{ color: tokens.secondaryMain, fontWeight: 700 }}>
+                                  {(log as any).assigneeName || (log as any).assigneeEmail || 'Someone'}
+                                </Box>
+                              </>
+                            ) : log.oldStatus && log.newStatus ? (
+                              <>
+                                {log.userName || 'Someone'} moved task from{' '}
+                                <Box component="span" sx={{ color: tokens.textSecondary, textTransform: 'uppercase', fontSize: '0.75rem' }}>{log.oldStatus}</Box>
+                                {' to '}
+                                <Box component="span" sx={{ color: tokens.secondaryMain, fontWeight: 700, textTransform: 'uppercase', fontSize: '0.75rem' }}>{log.newStatus}</Box>
+                              </>
+                            ) : (
+                              <>{log.userName || 'Someone'} updated the task</>
+                            )}
                           </Typography>
                           <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block' }}>
                             {new Date(log.timestamp).toLocaleString()}

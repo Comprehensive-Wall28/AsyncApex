@@ -8,6 +8,8 @@ export interface TaskAssignmentPayload {
   assigneeEmail: string;
   assigneeName: string;
   teamId: string;
+  assigneeId: string;
+  assignedBy: string;
 }
 
 @Injectable()
@@ -24,7 +26,7 @@ export class NotificationsService {
     await snsClient.send(
       new PublishCommand({
         TopicArn: topicArn,
-        Subject: `New task assigned: ${payload.taskTitle}`,
+        Subject: `New Task Assigned: ${payload.taskTitle}`,
         Message: JSON.stringify(payload),
         MessageAttributes: {
           eventType: { DataType: 'String', StringValue: 'TASK_ASSIGNED' },

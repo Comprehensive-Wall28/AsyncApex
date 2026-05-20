@@ -1,7 +1,8 @@
 import { SQSEvent, SQSRecord } from 'aws-lambda';
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
 import { PutMetricDataCommand } from '@aws-sdk/client-cloudwatch';
-import { cloudWatchClient, dynamoDB, TABLES } from '../config/aws.config';
+import { PublishCommand } from '@aws-sdk/client-sns';
+import { cloudWatchClient, dynamoDB, TABLES, snsClient } from '../config/aws.config';
 
 type AssignmentMessage = {
   taskId: string;
@@ -61,6 +62,29 @@ async function processRecord(record: SQSRecord): Promise<void> {
       ],
     }),
   );
+
+  // 3) Email notification to assignee via SNS topic (leveraging existing subscription filter policy)
+  const notificationTopicArn = process.env.SNS_DAILY_DIGEST_TOPIC_ARN;
+  if (notificationTopicArn && msg.assigneeEmail) {
+    try {
+      await snsClient.send(
+        new PublishCommand({
+          TopicArn: notificationTopicArn,
+          Subject: `New Task Assigned: ${msg.taskTitle}`,
+          Message: `Hello ${msg.assigneeName || 'Team Member'},\n\nYou have been assigned a new task: "${msg.taskTitle}".\n\nTeam: ${msg.teamId}\nTask ID: ${msg.taskId}\n\nLog in to your dashboard to view the details and start working on it!`,
+          MessageAttributes: {
+            eventType: { DataType: 'String', StringValue: 'TASK_ASSIGNED' },
+            email: { DataType: 'String', StringValue: msg.assigneeEmail },
+          },
+        }),
+      );
+      console.log(`Successfully sent assignment email to ${msg.assigneeEmail}`);
+    } catch (err) {
+      console.error(`Failed to send assignment email to ${msg.assigneeEmail}:`, err);
+    }
+  } else {
+    console.warn('Skipping assignment email: SNS_DAILY_DIGEST_TOPIC_ARN not set or assigneeEmail missing');
+  }
 }
 
 export const handler = async (event: SQSEvent): Promise<void> => {

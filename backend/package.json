@@ -16,7 +16,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "test:aws": "ts-node -r dotenv/config scripts/test-aws-connection.ts"
+    "test:aws": "ts-node -r dotenv/config scripts/test-aws-connection.ts",
+    "package-lambdas": "node scripts/package-lambdas.js"
   },
   "dependencies": {
     "@aws-sdk/client-cloudwatch": "^3.0.0",

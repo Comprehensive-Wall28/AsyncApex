@@ -180,9 +180,17 @@ export const MainDashboard: React.FC = () => {
                         outerRadius: 120,
                         paddingAngle: 5,
                         cornerRadius: 5,
+                        cx: '40%',
                       },
                     ]}
                     height={300}
+                    margin={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    slotProps={{
+                      legend: {
+                        direction: 'vertical' as const,
+                        position: { vertical: 'middle' as const, horizontal: 'end' as const },
+                      },
+                    }}
                   />
                 )}
               </Box>

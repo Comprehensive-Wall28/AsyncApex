@@ -14,6 +14,7 @@ import { Tasks } from './pages/Tasks';
 import { NewProject } from './pages/NewProject';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import ProtectedRoute from './components/ProtectedRoute';
+import ManagerRoute from './components/ManagerRoute';
 import { NotFound } from './components/NotFound';
 import { Documentation } from './pages/Documentation';
 import { Features } from './pages/Features';
@@ -42,8 +43,8 @@ function App() {
               }
             >
               <Route path="/dashboard" element={<MainDashboard />} />
-              <Route path="/projects" element={<Projects />} />
-              <Route path="/projects/new" element={<NewProject />} />
+              <Route path="/projects" element={<ManagerRoute><Projects /></ManagerRoute>} />
+              <Route path="/projects/new" element={<ManagerRoute><NewProject /></ManagerRoute>} />
               <Route path="/teams" element={<Teams />} />
               <Route path="/tasks" element={<Tasks />} />
               <Route path="/management" element={<Management />} />

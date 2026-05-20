@@ -9,8 +9,9 @@ import {
   Divider,
 } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BoltRounded, LockOutlined, FlashOnOutlined } from '@mui/icons-material';
+import { LockOutlined, FlashOnOutlined } from '@mui/icons-material';
 import api from '../api';
+import { Logo } from '../components/Logo';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -66,26 +67,8 @@ export const Login: React.FC = () => {
         }}
       >
         {/* Logo */}
-        <Box
-          sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 10, cursor: 'pointer' }}
-          onClick={() => navigate('/')}
-        >
-          <Box
-            sx={{
-              width: 30,
-              height: 30,
-              borderRadius: '8px',
-              bgcolor: 'primary.main',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <BoltRounded sx={{ color: '#fff', fontSize: 18 }} />
-          </Box>
-          <Typography sx={{ fontWeight: 700, fontSize: '1.05rem', color: 'text.primary' }}>
-            AsyncApex
-          </Typography>
+        <Box sx={{ mb: 10 }}>
+          <Logo size={28} onClick={() => navigate('/')} />
         </Box>
 
         <Box

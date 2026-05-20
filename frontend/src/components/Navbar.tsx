@@ -1,8 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AppBar, Toolbar, Typography, Button, Box, Container } from '@mui/material';
-import { BoltRounded } from '@mui/icons-material';
+import { AppBar, Toolbar, Button, Box, Container } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
+import { Logo } from './Logo';
 
 export const Navbar: React.FC = () => {
   const navigate = useNavigate();
@@ -33,37 +33,7 @@ export const Navbar: React.FC = () => {
         <Toolbar disableGutters sx={{ justifyContent: 'space-between', minHeight: { xs: 52, md: 56 } }}>
 
           {/* Logo */}
-          <Box
-            sx={{ display: 'flex', alignItems: 'center', gap: 1.25, cursor: 'pointer' }}
-            onClick={() => navigate('/')}
-          >
-            <Box
-              sx={{
-                width: 30,
-                height: 30,
-                borderRadius: '8px',
-                background: 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.15)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <BoltRounded sx={{ color: '#ffffff', fontSize: 18 }} />
-            </Box>
-            <Typography
-              variant="h6"
-              noWrap
-              sx={{
-                fontWeight: 700,
-                letterSpacing: '-0.02em',
-                fontSize: '1.05rem',
-                color: 'text.primary',
-              }}
-            >
-              AsyncApex
-            </Typography>
-          </Box>
+          <Logo size={28} onClick={() => navigate('/')} />
           {/* Nav links */}
           <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 0.25 }}>
             {[

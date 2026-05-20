@@ -3,7 +3,7 @@ import { Navbar } from '../components/Navbar'
 import { Hero } from '../components/Hero'
 import { KanbanPreview } from '../components/KanbanPreview'
 import { FeatureGrid } from '../components/FeatureGrid'
-import { BoltRounded } from '@mui/icons-material'
+import { Logo } from '../components/Logo'
 
 import { useEffect } from 'react'
 import api from '../api'
@@ -47,24 +47,7 @@ export function Landing() {
             }}
           >
             {/* Brand */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Box
-                sx={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: '6px',
-                  background: 'linear-gradient(135deg, #7C3AED 0%, #06B6D4 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <BoltRounded sx={{ color: '#fff', fontSize: 14 }} />
-              </Box>
-              <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: 'text.primary' }}>
-                AsyncApex
-              </Typography>
-            </Box>
+            <Logo size={24} />
 
             <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
               © {new Date().getFullYear()} AsyncApex. Powered by AWS.

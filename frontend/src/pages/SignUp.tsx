@@ -9,8 +9,9 @@ import {
   Divider,
 } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BoltRounded, CheckCircleOutlined, AutoAwesomeOutlined } from '@mui/icons-material';
+import { CheckCircleOutlined, AutoAwesomeOutlined } from '@mui/icons-material';
 import api from '../api';
+import { Logo } from '../components/Logo';
 
 export const SignUp: React.FC = () => {
   const navigate = useNavigate();
@@ -68,26 +69,8 @@ export const SignUp: React.FC = () => {
         }}
       >
         {/* Logo */}
-        <Box
-          sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 8, cursor: 'pointer' }}
-          onClick={() => navigate('/')}
-        >
-          <Box
-            sx={{
-              width: 30,
-              height: 30,
-              borderRadius: '8px',
-              bgcolor: 'primary.main',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <BoltRounded sx={{ color: '#fff', fontSize: 18 }} />
-          </Box>
-          <Typography sx={{ fontWeight: 700, fontSize: '1.05rem', color: 'text.primary' }}>
-            AsyncApex
-          </Typography>
+        <Box sx={{ mb: 8 }}>
+          <Logo size={28} onClick={() => navigate('/')} />
         </Box>
 
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', maxWidth: 380, width: '100%' }}>

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Box, Typography, IconButton, Tooltip, Avatar } from '@mui/material';
 import {
-  BoltRounded,
   LogoutRounded,
   MenuOpenRounded,
   MenuRounded,
@@ -13,6 +12,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import api from '../api';
+import { Logo } from './Logo';
 
 interface SidebarProps {
   userName?: string;
@@ -67,35 +67,15 @@ export const CollapsibleSidebar: React.FC<SidebarProps> = ({ userName, collapsed
           display: 'flex',
           alignItems: 'center',
           justifyContent: collapsed ? 'center' : 'space-between',
-          px: collapsed ? 0 : 2,
+          px: collapsed ? 0.75 : 2,
           flexShrink: 0,
         }}
       >
-        <Box
-          sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', overflow: 'hidden' }}
+        <Logo
+          size={28}
+          showText={!collapsed}
           onClick={() => navigate('/dashboard')}
-        >
-          <Box
-            sx={{
-              minWidth: 30,
-              width: 30,
-              height: 30,
-              borderRadius: '8px',
-              bgcolor: 'primary.main',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <BoltRounded sx={{ color: '#fff', fontSize: 18 }} />
-          </Box>
-          {!collapsed && (
-            <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: 'text.primary', whiteSpace: 'nowrap' }}>
-              AsyncApex
-            </Typography>
-          )}
-        </Box>
+        />
         {!collapsed && (
           <IconButton onClick={onToggle} size="small" sx={{ color: 'text.secondary' }}>
             <MenuOpenRounded fontSize="small" />

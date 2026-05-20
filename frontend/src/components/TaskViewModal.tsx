@@ -284,14 +284,16 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
                 <Divider orientation="vertical" flexItem sx={{ mx: 1, opacity: 0.1 }} />
               </>
             )}
-            <Button
-              variant="outlined"
-              startIcon={<EditRounded />}
-              onClick={onEdit}
-              sx={{ borderRadius: '12px', px: 2 }}
-            >
-              Edit
-            </Button>
+            {role === 'manager' && (
+              <Button
+                variant="outlined"
+                startIcon={<EditRounded />}
+                onClick={onEdit}
+                sx={{ borderRadius: '12px', px: 2 }}
+              >
+                Edit
+              </Button>
+            )}
             {role === 'manager' && (
               <IconButton
                 color="error"

@@ -43,8 +43,9 @@ export const Tasks: React.FC = () => {
     const fetchData = async () => {
       try {
         setIsDataLoading(true);
+        const isManager = user?.role === 'manager';
         const [u, t, p] = await Promise.all([
-          api.users.getAll(),
+          isManager ? api.users.getAll() : (user?.teamId ? api.teams.getTeamUsers(user.teamId) : Promise.resolve([])),
           api.teams.getAll(),
           api.projects.getAll()
         ]);
@@ -57,8 +58,8 @@ export const Tasks: React.FC = () => {
         setIsDataLoading(false);
       }
     };
-    fetchData();
-  }, []);
+    if (!loading) fetchData();
+  }, [loading, user?.role, user?.teamId]);
 
   if (loading) return null;
 

@@ -79,6 +79,8 @@ interface SortableTaskCardProps {
 }
 
 const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, role, onClick, onStart, onSubmit, onApprove, onReject }) => {
+  const isDragDisabled = role === 'employee' && (task.status === 'in-review' || task.status === 'done');
+
   const {
     attributes,
     listeners,
@@ -86,7 +88,11 @@ const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, role, onClick
     transform,
     transition,
     isDragging
-  } = useSortable({ id: task.taskId, data: { task } });
+  } = useSortable({
+    id: task.taskId,
+    data: { task },
+    disabled: isDragDisabled
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -109,19 +115,19 @@ const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, role, onClick
       }}
       sx={{
         p: 2.5,
-        cursor: 'grab',
+        cursor: isDragDisabled ? 'default' : 'grab',
         bgcolor: 'rgba(18, 22, 32, 0.8)',
         borderRadius: '24px',
         border: '1px solid rgba(148, 163, 184, 0.1)',
         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
         position: 'relative',
         '&:hover': {
-          transform: 'translateY(-4px) scale(1.01)',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-          borderColor: tokens.secondaryMain,
-          bgcolor: 'rgba(22, 28, 40, 1)'
+          transform: isDragDisabled ? 'none' : 'translateY(-4px) scale(1.01)',
+          boxShadow: isDragDisabled ? 'none' : '0 20px 40px rgba(0,0,0,0.5)',
+          borderColor: isDragDisabled ? 'rgba(148, 163, 184, 0.1)' : tokens.secondaryMain,
+          bgcolor: isDragDisabled ? 'rgba(18, 22, 32, 0.8)' : 'rgba(22, 28, 40, 1)'
         },
-        '&:active': { cursor: 'grabbing' },
+        '&:active': { cursor: isDragDisabled ? 'default' : 'grabbing' },
       }}
     >
       <Typography sx={{ fontWeight: 600, mb: 1.5, fontSize: '0.95rem', color: 'text.primary', lineHeight: 1.4 }}>
@@ -304,17 +310,19 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
             {title}
           </Typography>
         </Box>
-        <IconButton
-          size="small"
-          onClick={() => onAddTask?.(id as Task['status'])}
-          sx={{
-            bgcolor: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '8px',
-            '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.1)' }
-          }}
-        >
-          <AddRounded fontSize="small" />
-        </IconButton>
+        {role === 'manager' && (
+          <IconButton
+            size="small"
+            onClick={() => onAddTask?.(id as Task['status'])}
+            sx={{
+              bgcolor: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: '8px',
+              '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.1)' }
+            }}
+          >
+            <AddRounded fontSize="small" />
+          </IconButton>
+        )}
       </Box>
 
       <SortableContext
@@ -502,6 +510,17 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
 
     if (!activeContainer || !overContainer || activeContainer === overContainer) return;
 
+    // Enforce employee restrictions in drag over
+    if (role === 'employee') {
+      const allowedTransitions: Record<string, string> = {
+        'todo': 'in-progress',
+        'in-progress': 'in-review',
+      };
+      if (allowedTransitions[activeContainer] !== overContainer) {
+        return;
+      }
+    }
+
     setTasks((prev) => {
       const activeIndex = prev.findIndex((t) => t.taskId === activeId);
 
@@ -541,6 +560,20 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, role, refreshKey, 
     const initialStatus = startStatusRef.current;
 
     if (initialStatus && overContainer && initialStatus !== overContainer) {
+      // Enforce employee restrictions in drag end
+      if (role === 'employee') {
+        const allowedTransitions: Record<string, string> = {
+          'todo': 'in-progress',
+          'in-progress': 'in-review',
+        };
+        if (allowedTransitions[initialStatus] !== overContainer) {
+          toast.error('Invalid status transition for team members');
+          fetchTasks();
+          startStatusRef.current = null;
+          return;
+        }
+      }
+
       // Sync with API
       try {
         console.log("Meow")

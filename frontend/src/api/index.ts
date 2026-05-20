@@ -13,6 +13,7 @@ export const api = {
     update: (id: string, data: any) => client.patch(`/teams/${id}`, data),
     delete: (id: string) => client.delete(`/teams/${id}`),
     addUser: (teamId: string, userId: string) => client.post(`/teams/${teamId}/users`, { userId }),
+    getTeamUsers: (teamId: string) => client.get(`/teams/${teamId}/users`),
   },
   tasks: {
     getAll: (params?: { teamId?: string; assigneeId?: string; status?: string; projectId?: string }) =>

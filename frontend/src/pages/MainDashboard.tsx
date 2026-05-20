@@ -28,8 +28,9 @@ export const MainDashboard: React.FC = () => {
     const fetchData = async () => {
       try {
         setIsDataLoading(true);
+        const isManager = user?.role === 'manager';
         const [u, t, p] = await Promise.all([
-          api.users.getAll(),
+          isManager ? api.users.getAll() : (user?.teamId ? api.teams.getTeamUsers(user.teamId) : Promise.resolve([])),
           api.teams.getAll(),
           api.projects.getAll()
         ]);
@@ -37,7 +38,7 @@ export const MainDashboard: React.FC = () => {
         setTeams(t as any);
         setProjects(p as any);
 
-        if (user?.role === 'manager') {
+        if (isManager) {
           const s = await api.status.check();
           setStats(s);
         }
@@ -48,7 +49,7 @@ export const MainDashboard: React.FC = () => {
       }
     };
     if (!loading) fetchData();
-  }, [loading, user?.role]);
+  }, [loading, user?.role, user?.teamId]);
 
   if (loading) return null;
 

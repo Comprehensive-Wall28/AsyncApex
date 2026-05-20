@@ -7,6 +7,8 @@ import {
 import { promisify } from 'util';
 import * as jwt from 'jsonwebtoken';
 import * as jwksRsa from 'jwks-rsa';
+import { GetCommand } from '@aws-sdk/lib-dynamodb';
+import { dynamoDB, TABLES } from '../../config/aws.config';
 
 @Injectable()
 export class CognitoAuthGuard implements CanActivate {
@@ -52,12 +54,31 @@ export class CognitoAuthGuard implements CanActivate {
     try {
       const payload = await verifyAsync(token, getKey, { algorithms: ['RS256'] });
 
+      let role = payload['custom:role'];
+      let teamId = payload['custom:teamId'];
+
+      // Fetch dynamic user updates from DynamoDB if present to avoid stale Cognito token issues
+      try {
+        const userResult = await dynamoDB.send(
+          new GetCommand({
+            TableName: TABLES.Users,
+            Key: { userId: payload.sub },
+          }),
+        );
+        if (userResult.Item) {
+          role = userResult.Item.role || role;
+          teamId = userResult.Item.teamId || teamId;
+        }
+      } catch (err) {
+        // Fallback silently if DynamoDB fails for any reason
+      }
+
       request.user = {
         userId: payload.sub,
         email: payload.email,
         name: payload.name,
-        role: payload['custom:role'],
-        teamId: payload['custom:teamId'],
+        role,
+        teamId,
       };
 
       return true;

@@ -56,8 +56,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
 
   const hasAssignee = !!assigneeId;
   const hasTeam = !!teamId;
-  const hasExactlyOneAssignment = hasAssignee !== hasTeam;
-  const canSubmit = !!title && !!priority && !!projectId && hasExactlyOneAssignment;
+  const hasAtLeastOneAssignment = hasAssignee || hasTeam;
+  const canSubmit = !!title && !!priority && !!projectId && hasAtLeastOneAssignment;
 
   useEffect(() => {
     if (open) {
@@ -198,7 +198,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
     e.preventDefault();
 
     if (!canSubmit) {
-      setError('Please choose either an assignee or a team, not both.');
+      setError('Please select either an assignee or a team.');
       return;
     }
 
@@ -303,22 +303,29 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
         onClick={openFilePicker}
         sx={{
           border: '2px dashed',
-          borderColor: isDragging ? 'primary.main' : 'divider',
-          borderRadius: 2,
-          p: 4,
-          textAlign: 'center',
+          borderColor: isDragging ? 'primary.main' : 'rgba(255, 255, 255, 0.15)',
+          borderRadius: 2.5,
+          height: '240px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
           cursor: 'pointer',
-          bgcolor: isDragging ? 'action.hover' : 'transparent',
+          bgcolor: isDragging ? 'rgba(96, 165, 250, 0.08)' : 'rgba(255, 255, 255, 0.01)',
           transition: 'all 0.2s ease',
-          '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' },
+          '&:hover': {
+            borderColor: 'primary.main',
+            bgcolor: 'rgba(96, 165, 250, 0.04)',
+            boxShadow: 'inset 0 0 12px rgba(96, 165, 250, 0.03)',
+          },
         }}
       >
-        <CloudUploadRounded sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />
-        <Typography variant="body1" sx={{ color: 'text.primary', fontWeight: 500 }}>
-          Drag & drop an image here
+        <CloudUploadRounded sx={{ fontSize: 42, color: 'primary.light', mb: 1.5, opacity: 0.85 }} />
+        <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600, mb: 0.5 }}>
+          Drag & drop your image here
         </Typography>
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          or click to browse
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          or click to browse local files
         </Typography>
       </Box>
     );
@@ -336,142 +343,267 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
         '& .MuiDialog-paper': {
           bgcolor: 'background.default',
           borderRadius: 3,
-          boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
+          boxShadow: '0 24px 48px rgba(0,0,0,0.6)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          maxHeight: '90vh',
+          height: '720px',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          transition: 'all 0.3s ease',
         },
       }}
     >
-      <DialogTitle component="div" sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          {task ? 'Edit Task' : 'Create New Task'}
-        </Typography>
-        <IconButton onClick={onClose} disabled={loading} size="small">
+      {/* Header - Fixed & Always Visible */}
+      <DialogTitle
+        component="div"
+        sx={{
+          m: 0,
+          p: 2.5,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'rgba(15, 23, 42, 0.2)',
+          backdropFilter: 'blur(8px)',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: '-0.01em', color: 'text.primary' }}>
+            {task ? 'Edit Task' : 'Create New Task'}
+          </Typography>
+          {task && (
+            <Box
+              sx={{
+                px: 1.5,
+                py: 0.25,
+                borderRadius: '9999px',
+                bgcolor: 'action.selected',
+                border: '1px solid',
+                borderColor: 'divider',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: 'text.secondary',
+                textTransform: 'uppercase',
+              }}
+            >
+              Task ID: {task.taskId.slice(0, 8)}
+            </Box>
+          )}
+        </Box>
+        <IconButton onClick={onClose} disabled={loading} size="small" sx={{ color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>
           <CloseRounded />
         </IconButton>
       </DialogTitle>
 
-      <form onSubmit={handleSubmit}>
-        <DialogContent dividers sx={{ borderColor: 'divider', p: 3 }}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden' }}>
+        {/* Scrollable Content Container */}
+        <DialogContent sx={{ p: 4, flexGrow: 1, overflowY: 'auto', bgcolor: 'background.default' }}>
           {dataLoading ? (
-            <Stack spacing={3}>
-              <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />
-              <Skeleton variant="rectangular" height={100} sx={{ borderRadius: 1 }} />
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />
-                <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />
-              </Box>
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />
-                <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />
-              </Box>
-              <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />
-              <Skeleton variant="rectangular" height={150} sx={{ borderRadius: 2 }} />
-            </Stack>
-          ) : (
-            <Stack spacing={3}>
-              {error && (
-                <Box sx={{ p: 2, bgcolor: 'error.main', color: 'white', borderRadius: 1, fontSize: '0.875rem' }}>
-                  {error}
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 4 }}>
+              {/* Left Column Skeleton */}
+              <Stack spacing={3} sx={{ flex: 1.3 }}>
+                <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1.5 }} />
+                <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 1.5 }} />
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                  <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1.5 }} />
+                  <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1.5 }} />
                 </Box>
-              )}
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                  <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1.5 }} />
+                  <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1.5 }} />
+                </Box>
+                <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1.5 }} />
+              </Stack>
 
-              <TextField
-                required
-                fullWidth
-                label="Task Title"
-                variant="outlined"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
+              {/* Splitter Skeleton */}
+              <Box sx={{ width: '1px', bgcolor: 'divider', display: { xs: 'none', md: 'block' } }} />
 
-              <TextField
-                fullWidth
-                label="Description"
-                variant="outlined"
-                multiline
-                rows={3}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
+              {/* Right Column Skeleton */}
+              <Stack spacing={3} sx={{ flex: 0.7, minWidth: 280 }}>
+                <Skeleton variant="text" width="60%" height={24} />
+                <Skeleton variant="rectangular" height={220} sx={{ borderRadius: 2 }} />
+                <Skeleton variant="rectangular" height={100} sx={{ borderRadius: 2 }} />
+              </Stack>
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 4, minHeight: '100%' }}>
+              {/* Left Column — Form Fields */}
+              <Box sx={{ flex: 1.3, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                {error && (
+                  <Box
+                    sx={{
+                      p: 2,
+                      bgcolor: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid rgba(239, 68, 68, 0.2)',
+                      color: 'error.light',
+                      borderRadius: 2,
+                      fontSize: '0.85rem',
+                      fontWeight: 500,
+                    }}
+                  >
+                    {error}
+                  </Box>
+                )}
 
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
                 <TextField
-                  select
+                  required
                   fullWidth
-                  label="Priority"
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value)}
-                >
-                  <MenuItem value="low">Low</MenuItem>
-                  <MenuItem value="medium">Medium</MenuItem>
-                  <MenuItem value="high">High</MenuItem>
-                </TextField>
-                <TextField
-                  fullWidth
-                  label="Deadline"
-                  type="date"
-                  slotProps={{ inputLabel: { shrink: true } }}
-                  value={deadline}
-                  onChange={(e) => setDeadline(e.target.value)}
-                />
-              </Box>
-
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                <TextField
-                  select
-                  fullWidth
-                  label="Assignee"
-                  value={users.some(u => u.userId === assigneeId) ? assigneeId : ''}
-                  onChange={(e) => {
-                    setAssigneeId(e.target.value);
-                    if (e.target.value) setTeamId('');
+                  label="Task Title"
+                  variant="outlined"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 1.5,
+                    }
                   }}
-                >
-                  <MenuItem value=""><em>Unassigned</em></MenuItem>
-                  {users
-                    .filter(u => !teamId || u.teamId === teamId)
-                    .map((u) => (
-                      <MenuItem key={u.userId} value={u.userId}>{u.name}</MenuItem>
+                />
+
+                <TextField
+                  fullWidth
+                  label="Description"
+                  variant="outlined"
+                  multiline
+                  rows={4}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 1.5,
+                    }
+                  }}
+                />
+
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                  <TextField
+                    select
+                    fullWidth
+                    label="Priority"
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value)}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 1.5,
+                      }
+                    }}
+                  >
+                    <MenuItem value="low">Low</MenuItem>
+                    <MenuItem value="medium">Medium</MenuItem>
+                    <MenuItem value="high">High</MenuItem>
+                  </TextField>
+                  <TextField
+                    fullWidth
+                    label="Deadline"
+                    type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 1.5,
+                      }
+                    }}
+                  />
+                </Box>
+
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                  <TextField
+                    select
+                    fullWidth
+                    label="Assignee"
+                    value={users.some(u => u.userId === assigneeId) ? assigneeId : ''}
+                    onChange={(e) => {
+                      setAssigneeId(e.target.value);
+                      if (e.target.value) setTeamId('');
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 1.5,
+                      }
+                    }}
+                  >
+                    <MenuItem value=""><em>Unassigned</em></MenuItem>
+                    {users
+                      .filter(u => !teamId || u.teamId === teamId)
+                      .map((u) => (
+                        <MenuItem key={u.userId} value={u.userId}>{u.name}</MenuItem>
+                      ))}
+                  </TextField>
+
+                  <TextField
+                    select
+                    fullWidth
+                    label="Team"
+                    value={teams.some(t => t.teamId === teamId) ? teamId : ''}
+                    onChange={(e) => {
+                      setTeamId(e.target.value);
+                      if (e.target.value) setAssigneeId('');
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 1.5,
+                      }
+                    }}
+                  >
+                    <MenuItem value=""><em>None</em></MenuItem>
+                    {teams.map((t) => (
+                      <MenuItem key={t.teamId} value={t.teamId}>{t.name}</MenuItem>
                     ))}
-                </TextField>
+                  </TextField>
+                </Box>
 
                 <TextField
                   select
+                  required={!task}
                   fullWidth
-                  label="Team"
-                  value={teams.some(t => t.teamId === teamId) ? teamId : ''}
-                  onChange={(e) => {
-                    setTeamId(e.target.value);
-                    if (e.target.value) setAssigneeId('');
+                  label="Project"
+                  value={projects.some(p => p.projectId === projectId) ? projectId : ''}
+                  onChange={(e) => setProjectId(e.target.value)}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 1.5,
+                    }
                   }}
                 >
                   <MenuItem value=""><em>None</em></MenuItem>
-                  {teams.map((t) => (
-                    <MenuItem key={t.teamId} value={t.teamId}>{t.name}</MenuItem>
+                  {projects.map((p) => (
+                    <MenuItem key={p.projectId} value={p.projectId}>{p.name}</MenuItem>
                   ))}
                 </TextField>
               </Box>
 
-              <TextField
-                select
-                required={!task}
-                fullWidth
-                label="Project"
-                value={projects.some(p => p.projectId === projectId) ? projectId : ''}
-                onChange={(e) => setProjectId(e.target.value)}
-              >
-                <MenuItem value=""><em>None</em></MenuItem>
-                {projects.map((p) => (
-                  <MenuItem key={p.projectId} value={p.projectId}>{p.name}</MenuItem>
-                ))}
-              </TextField>
+              {/* Vertical Splitter */}
+              <Box sx={{ width: '1px', bgcolor: 'divider', display: { xs: 'none', md: 'block' }, alignSelf: 'stretch' }} />
 
-              {/* Image upload zone */}
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-                  Attachment (Image)
-                </Typography>
-                {renderImageZone()}
-                {/* Single hidden file input — shared across all scenarios */}
+              {/* Right Column — Attachment & Help Section */}
+              <Box sx={{ flex: 0.7, display: 'flex', flexDirection: 'column', gap: 3, minWidth: 280 }}>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: 'text.primary', letterSpacing: '0.02em', textTransform: 'uppercase', fontSize: '0.75rem' }}>
+                    Task Attachment
+                  </Typography>
+                  {renderImageZone()}
+                </Box>
+
+                {/* Assignment Routing Helper Box */}
+                <Box
+                  sx={{
+                    p: 2,
+                    bgcolor: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px dashed rgba(255, 255, 255, 0.08)',
+                    borderRadius: 2,
+                  }}
+                >
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontWeight: 600, mb: 0.5 }}>
+                    Assignment Routing Policy
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', lineHeight: 1.45 }}>
+                    A task can belong directly to an individual team member OR a whole team, but not both. Selecting an assignee clears the team routing, and vice versa.
+                  </Typography>
+                </Box>
+
+                {/* Hidden File Input */}
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -480,12 +612,24 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
                   accept="image/*"
                 />
               </Box>
-            </Stack>
+            </Box>
           )}
         </DialogContent>
 
-        <DialogActions sx={{ p: 2, px: 3 }}>
-          <Button onClick={onClose} disabled={loading} sx={{ color: 'text.secondary' }}>
+        {/* Footer — Fixed & Always Visible */}
+        <DialogActions
+          sx={{
+            p: 2.5,
+            px: 4,
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            bgcolor: 'rgba(15, 23, 42, 0.2)',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: 1.5,
+          }}
+        >
+          <Button onClick={onClose} disabled={loading} sx={{ color: 'text.secondary', fontWeight: 500 }}>
             Cancel
           </Button>
           <Button
@@ -493,6 +637,15 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
             variant="contained"
             disabled={loading || dataLoading || !canSubmit}
             startIcon={loading && <CircularProgress size={16} color="inherit" />}
+            sx={{
+              px: 3.5,
+              borderRadius: 1.5,
+              fontWeight: 600,
+              boxShadow: 'none',
+              '&:hover': {
+                boxShadow: '0 4px 12px rgba(96, 165, 250, 0.2)',
+              }
+            }}
           >
             {task ? 'Save Changes' : 'Create Task'}
           </Button>

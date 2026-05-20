@@ -51,7 +51,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import api from '../api';
-import type { Task } from '../api/interface';
+import type { Task, User, Team } from '../api/interface';
 import { tokens } from '../theme/theme';
 
 interface TaskBoardProps {
@@ -61,6 +61,8 @@ interface TaskBoardProps {
   refreshKey?: number;
   onTaskClick?: (task: Task) => void;
   onAddTask?: (status: Task['status']) => void;
+  users?: User[];
+  teams?: Team[];
 }
 
 const priorityColorMap: Record<string, string> = {
@@ -77,10 +79,25 @@ interface SortableTaskCardProps {
   onSubmit?: (taskId: string) => void;
   onApprove?: (taskId: string) => void;
   onReject?: (taskId: string) => void;
+  users: User[];
+  teams: Team[];
 }
 
-const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, role, onClick, onStart, onSubmit, onApprove, onReject }) => {
+const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, role, onClick, onStart, onSubmit, onApprove, onReject, users, teams }) => {
   const isDragDisabled = role === 'employee' && (task.status === 'in-review' || task.status === 'done');
+
+  const assignee = task.assigneeId ? users.find(u => u.userId === task.assigneeId) : undefined;
+  const team = task.teamId ? teams.find(t => t.teamId === task.teamId) : undefined;
+
+  const displayInitials = assignee
+    ? assignee.name.substring(0, 2).toUpperCase()
+    : (task.assigneeId
+        ? task.assigneeId.substring(0, 2).toUpperCase()
+        : (team ? team.name.substring(0, 2).toUpperCase() : '?'));
+
+  const displayTitle = assignee
+    ? `Assignee: ${assignee.name}`
+    : (team ? `Team: ${team.name}` : 'Unassigned');
 
   const {
     attributes,
@@ -165,14 +182,15 @@ const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, role, onClick
           sx={{
             width: 28,
             height: 28,
-            bgcolor: tokens.bgElevated,
-            border: '1px solid rgba(255,255,255,0.1)',
+            bgcolor: assignee ? tokens.bgElevated : 'rgba(168, 85, 247, 0.2)',
+            border: assignee ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(168, 85, 247, 0.4)',
             fontSize: '0.7rem',
             fontWeight: 800,
-            color: tokens.textPrimary
+            color: assignee ? tokens.textPrimary : 'rgb(216, 180, 254)'
           }}
+          title={displayTitle}
         >
-          {task.assigneeId ? task.assigneeId.substring(0, 2).toUpperCase() : '?'}
+          {displayInitials}
         </Avatar>
       </Box>
 
@@ -270,10 +288,12 @@ interface TaskColumnProps {
   onSubmitTask: (taskId: string) => void;
   onApproveTask: (taskId: string) => void;
   onRejectTask: (taskId: string) => void;
+  users: User[];
+  teams: Team[];
 }
 
 const TaskColumn: React.FC<TaskColumnProps> = ({
-  id, title, icon, tasks, role, onAddTask, onTaskClick, onStartTask, onSubmitTask, onApproveTask, onRejectTask
+  id, title, icon, tasks, role, onAddTask, onTaskClick, onStartTask, onSubmitTask, onApproveTask, onRejectTask, users, teams
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -343,6 +363,8 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
                 onSubmit={onSubmitTask}
                 onApprove={onApproveTask}
                 onReject={onRejectTask}
+                users={users}
+                teams={teams}
               />
             ))
           ) : (
@@ -369,7 +391,16 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
   );
 };
 
-export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, searchQuery, role, refreshKey, onTaskClick, onAddTask }) => {
+export const TaskBoard: React.FC<TaskBoardProps> = ({
+  teamId,
+  searchQuery,
+  role,
+  refreshKey,
+  onTaskClick,
+  onAddTask,
+  users = [],
+  teams = []
+}) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -670,6 +701,8 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, searchQuery, role,
               onSubmitTask={handleSubmitTask}
               onApproveTask={handleApproveTask}
               onRejectTask={handleRejectTask}
+              users={users}
+              teams={teams}
             />
           ))}
         </Box>
@@ -687,6 +720,8 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ teamId, searchQuery, role,
               task={activeTask}
               role={role}
               onClick={() => { }}
+              users={users}
+              teams={teams}
             />
           ) : null}
         </DragOverlay>

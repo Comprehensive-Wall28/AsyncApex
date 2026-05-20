@@ -202,6 +202,8 @@ export const Tasks: React.FC = () => {
             setIsViewModalOpen(true);
           }}
           onAddTask={handleAddTask}
+          users={users}
+          teams={teams}
         />
       </Box>
 

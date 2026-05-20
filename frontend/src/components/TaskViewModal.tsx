@@ -388,27 +388,39 @@ export const TaskViewModal: React.FC<TaskViewModalProps> = ({ open, onClose, onE
                     </Stack>
                   </Grid>
                   <Grid size={{ xs: 12, md: 6 }}>
-                    {/* Dynamic Title: Shows 'Assignee' if true, otherwise 'Team' */}
                     <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800, mb: 1, display: 'block' }}>
-                      {assignee ? 'Assignee' : 'Team'}
+                      Assignee
                     </Typography>
 
                     <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-
-                      {/* Dynamic Avatar Initials */}
-                      <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.dark', fontSize: '0.875rem', fontWeight: 800 }}>
+                      <Avatar
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          bgcolor: assignee ? 'primary.dark' : 'rgba(168, 85, 247, 0.2)',
+                          border: assignee ? 'none' : '1px solid rgba(168, 85, 247, 0.4)',
+                          fontSize: '0.875rem',
+                          fontWeight: 800,
+                          color: assignee ? 'white' : 'rgb(216, 180, 254)'
+                        }}
+                      >
                         {assignee
                           ? assignee.name.substring(0, 2).toUpperCase()
                           : (team ? team.name.substring(0, 2).toUpperCase() : '?')}
                       </Avatar>
 
-                      {/* Dynamic Display Name */}
-                      <Typography sx={{ fontWeight: 700 }}>
-                        {assignee
-                          ? assignee.name
-                          : (team ? team.name : 'Unassigned')}
-                      </Typography>
-
+                      <Box>
+                        <Typography sx={{ fontWeight: 700 }}>
+                          {assignee
+                            ? assignee.name
+                            : (team ? `${team.name} (Team)` : 'Unassigned')}
+                        </Typography>
+                        {!assignee && team && (
+                          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: -0.25 }}>
+                            Task belongs to the entire team
+                          </Typography>
+                        )}
+                      </Box>
                     </Stack>
                   </Grid>
                 </Grid>

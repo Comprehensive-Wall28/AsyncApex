@@ -421,6 +421,12 @@ export class TasksService {
           this.logger.warn(`Failed to remove S3 image for completed task ${taskId}: ${err}`);
         }
       }
+
+      if (isMarkingDone) {
+        const timeToClose = (Date.now() - new Date(task['createdAt']).getTime()) / (1000 * 60 * 60);
+        await this.cloudWatchService.publishTaskClosed(task['teamId']);
+        await this.cloudWatchService.publishAverageTimeToClose(timeToClose, task['teamId']);
+      }
     }
 
     return result.Attributes;
@@ -646,6 +652,11 @@ export class TasksService {
     );
 
     await this.logStatusChange(taskId, user.userId, 'in-review', 'done');
+
+    const timeToClose = (Date.now() - new Date(task['createdAt']).getTime()) / (1000 * 60 * 60);
+    await this.cloudWatchService.publishTaskClosed(task['teamId']);
+    await this.cloudWatchService.publishAverageTimeToClose(timeToClose, task['teamId']);
+
     return result.Attributes;
   }
 

@@ -75,7 +75,9 @@ export class TasksService {
       assignee = assigneeResult.Item;
 
       if (!assignee['teamId']) {
-        throw new BadRequestException('Assignee must belong to a team');
+        throw new BadRequestException(
+          `"${assignee['name']}" is not assigned to any team. Please assign them to a team first before creating a task for them.`,
+        );
       }
 
       const teamResult = await dynamoDB.send(
@@ -86,7 +88,9 @@ export class TasksService {
       );
 
       if (!teamResult.Item) {
-        throw new NotFoundException('Assignee team not found');
+        throw new NotFoundException(
+          `The team that "${assignee['name']}" belongs to no longer exists. Please reassign them to a valid team.`,
+        );
       }
     }
 
@@ -283,7 +287,9 @@ export class TasksService {
       assignee = assigneeResult.Item;
 
       if (!assignee['teamId']) {
-        throw new BadRequestException('Assignee must belong to a team');
+        throw new BadRequestException(
+          `"${assignee['name']}" is not assigned to any team. Please assign them to a team first before assigning a task to them.`,
+        );
       }
 
       const teamResult = await dynamoDB.send(
@@ -294,7 +300,9 @@ export class TasksService {
       );
 
       if (!teamResult.Item) {
-        throw new NotFoundException('Assignee team not found');
+        throw new NotFoundException(
+          `The team that "${assignee['name']}" belongs to no longer exists. Please reassign them to a valid team.`,
+        );
       }
 
       newTeamId = assignee['teamId'];

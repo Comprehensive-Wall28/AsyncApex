@@ -14,7 +14,7 @@ import {
   IconButton,
   Skeleton
 } from '@mui/material';
-import { CloseRounded, CloudUploadRounded, DeleteRounded, SwapHorizRounded } from '@mui/icons-material';
+import { CloseRounded, CloudUploadRounded, DeleteRounded, SwapHorizRounded, ErrorOutlineRounded } from '@mui/icons-material';
 import api from '../api';
 import type { Task, User, Team, Project } from '../api/interface';
 import { S3Image } from './S3Image';
@@ -435,15 +435,18 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
                   <Box
                     sx={{
                       p: 2,
-                      bgcolor: 'rgba(239, 68, 68, 0.1)',
-                      border: '1px solid rgba(239, 68, 68, 0.2)',
-                      color: 'error.light',
+                      bgcolor: 'rgba(239, 68, 68, 0.08)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
                       borderRadius: 2,
-                      fontSize: '0.85rem',
-                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 1.5,
                     }}
                   >
-                    {error}
+                    <ErrorOutlineRounded sx={{ color: 'error.main', fontSize: 20, mt: 0.1, flexShrink: 0 }} />
+                    <Typography sx={{ color: 'error.light', fontSize: '0.875rem', fontWeight: 500, lineHeight: 1.5 }}>
+                      {error}
+                    </Typography>
                   </Box>
                 )}
 

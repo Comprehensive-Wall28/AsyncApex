@@ -69,6 +69,11 @@ export const Projects: React.FC = () => {
 
   // --- Filter and Search Logic ---
   const filteredProjects = projects.filter((project) => {
+    // Employees only see projects belonging to their team
+    if (!isManager && user?.teamId) {
+      if (!(project.teamIds ?? []).includes(user.teamId)) return false;
+    }
+
     const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (project.description && project.description.toLowerCase().includes(searchQuery.toLowerCase()));
 

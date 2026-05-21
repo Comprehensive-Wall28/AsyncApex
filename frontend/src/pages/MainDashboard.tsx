@@ -18,8 +18,8 @@ import {
   LinearProgress,
   Chip
 } from '@mui/material';
-import { 
-  AddRounded, 
+import {
+  AddRounded,
   AssessmentRounded,
   PersonRounded,
   GroupRounded,
@@ -27,7 +27,8 @@ import {
   EmailRounded,
   BadgeRounded,
   ArrowForwardRounded,
-  WarningAmberRounded
+  WarningAmberRounded,
+  FolderOpenRounded,
 } from '@mui/icons-material';
 import { PieChart, BarChart } from '@mui/x-charts';
 
@@ -56,6 +57,7 @@ export const MainDashboard: React.FC = () => {
   const [myTeam, setMyTeam] = useState<Team | null>(null);
   const [myTeamUsers, setMyTeamUsers] = useState<User[]>([]);
   const [myTasks, setMyTasks] = useState<Task[]>([]);
+  const [myProjects, setMyProjects] = useState<Project[]>([]);
   const [employeeLoading, setEmployeeLoading] = useState(false);
 
   React.useEffect(() => {
@@ -86,6 +88,11 @@ export const MainDashboard: React.FC = () => {
               setMyTeam(teamData as Team);
               const teamUsersData = await api.teams.getTeamUsers(user.teamId);
               setMyTeamUsers((teamUsersData as User[]) || []);
+              const allProjects = await api.projects.getAll();
+              const teamProjects = (allProjects as any[]).filter(p =>
+                Array.isArray(p.teamIds) && p.teamIds.includes(user.teamId)
+              );
+              setMyProjects(teamProjects as Project[]);
             }
           } catch (err) {
             console.error('Failed to fetch employee dashboard details', err);
@@ -389,6 +396,41 @@ export const MainDashboard: React.FC = () => {
                           </Box>
                         </Grid>
                       </Grid>
+                    </CardContent>
+                  </Card>
+
+                  {/* My Projects */}
+                  <Card sx={{ bgcolor: 'rgba(18, 22, 32, 0.8)', borderRadius: '24px', border: '1px solid rgba(148, 163, 184, 0.1)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
+                    <CardContent sx={{ p: 4 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 800 }}>My Team's Projects</Typography>
+                        <Button variant="text" endIcon={<ArrowForwardRounded />} onClick={() => navigate('/projects')} sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>
+                          View All
+                        </Button>
+                      </Box>
+                      {myProjects.length > 0 ? (
+                        <Stack spacing={2}>
+                          {myProjects.map((project) => (
+                            <Box key={project.projectId} sx={{ p: 2.5, borderRadius: '14px', bgcolor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 2 }}>
+                              <Box sx={{ p: 1, borderRadius: '8px', bgcolor: 'rgba(99,102,241,0.15)', display: 'flex' }}>
+                                <FolderOpenRounded sx={{ color: '#6366f1', fontSize: 20 }} />
+                              </Box>
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography variant="body1" sx={{ fontWeight: 700, mb: 0.25 }}>{project.name}</Typography>
+                                <Typography variant="caption" sx={{ color: 'text.secondary', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                  {project.description || 'No description provided.'}
+                                </Typography>
+                              </Box>
+                              <Chip label="Active" size="small" sx={{ bgcolor: 'rgba(16,185,129,0.15)', color: '#10b981', fontWeight: 700, fontSize: '0.7rem' }} />
+                            </Box>
+                          ))}
+                        </Stack>
+                      ) : (
+                        <Box sx={{ textAlign: 'center', py: 5, bgcolor: 'rgba(255,255,255,0.01)', borderRadius: '16px', border: '1px dashed rgba(255,255,255,0.05)' }}>
+                          <FolderOpenRounded sx={{ fontSize: 40, color: 'text.secondary', mb: 1.5 }} />
+                          <Typography variant="body2" sx={{ color: 'text.secondary' }}>No projects assigned to your team yet.</Typography>
+                        </Box>
+                      )}
                     </CardContent>
                   </Card>
 

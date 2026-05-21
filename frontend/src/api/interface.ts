@@ -28,6 +28,7 @@ export interface Project {
     name: string;
     description: string;
     managerId: string;
+    teamIds: string[];
     createdAt: Date;
     updatedAt: Date;
     status: 'todo' | 'in-progress' | 'in-review' | 'done';

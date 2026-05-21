@@ -31,6 +31,7 @@ export class ProjectsService {
       projectId: uuidv4(),
       name: dto.name,
       description: dto.description,
+      teamIds: dto.teamIds,
       managerId,
       createdAt: now,
       updatedAt: now,

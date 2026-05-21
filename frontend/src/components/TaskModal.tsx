@@ -508,50 +508,94 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
                   />
                 </Box>
 
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                  <TextField
-                    select
-                    fullWidth
-                    label="Assignee"
-                    value={users.some(u => u.userId === assigneeId) ? assigneeId : ''}
-                    onChange={(e) => {
-                      setAssigneeId(e.target.value);
-                      if (e.target.value) setTeamId('');
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 1.5,
-                      }
-                    }}
-                  >
-                    <MenuItem value=""><em>Unassigned</em></MenuItem>
-                    {users
-                      .filter(u => !teamId || u.teamId === teamId)
-                      .map((u) => (
+                {/* Assignment — mutually exclusive */}
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'text.secondary', fontSize: '0.72rem' }}>
+                      Assign to
+                    </Typography>
+                    {!hasAssignee && !hasTeam && (
+                      <Box sx={{ px: 1, py: 0.2, borderRadius: '6px', bgcolor: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', fontSize: '0.68rem', fontWeight: 700, color: 'error.light' }}>
+                        required — pick one
+                      </Box>
+                    )}
+                    {hasAtLeastOneAssignment && (
+                      <Box sx={{ px: 1, py: 0.2, borderRadius: '6px', bgcolor: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', fontSize: '0.68rem', fontWeight: 700, color: 'success.light' }}>
+                        ✓ set
+                      </Box>
+                    )}
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    {/* Assignee */}
+                    <TextField
+                      select
+                      fullWidth
+                      label="Individual"
+                      value={users.some(u => u.userId === assigneeId) ? assigneeId : ''}
+                      disabled={!!teamId}
+                      onChange={(e) => {
+                        setAssigneeId(e.target.value);
+                        if (e.target.value) setTeamId('');
+                      }}
+                      sx={{
+                        opacity: teamId ? 0.4 : 1,
+                        transition: 'opacity 0.2s',
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 1.5,
+                          ...(assigneeId && {
+                            '& fieldset': { borderColor: 'success.main', borderWidth: 2 },
+                          }),
+                        },
+                      }}
+                    >
+                      <MenuItem value=""><em>None</em></MenuItem>
+                      {users.map((u) => (
                         <MenuItem key={u.userId} value={u.userId}>{u.name}</MenuItem>
                       ))}
-                  </TextField>
+                    </TextField>
 
-                  <TextField
-                    select
-                    fullWidth
-                    label="Team"
-                    value={teams.some(t => t.teamId === teamId) ? teamId : ''}
-                    onChange={(e) => {
-                      setTeamId(e.target.value);
-                      if (e.target.value) setAssigneeId('');
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 1.5,
-                      }
-                    }}
-                  >
-                    <MenuItem value=""><em>None</em></MenuItem>
-                    {teams.map((t) => (
-                      <MenuItem key={t.teamId} value={t.teamId}>{t.name}</MenuItem>
-                    ))}
-                  </TextField>
+                    {/* OR badge */}
+                    <Box sx={{
+                      flexShrink: 0,
+                      width: 32, height: 32,
+                      borderRadius: '50%',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      bgcolor: 'background.paper',
+                    }}>
+                      <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, color: 'text.disabled', lineHeight: 1 }}>OR</Typography>
+                    </Box>
+
+                    {/* Team */}
+                    <TextField
+                      select
+                      fullWidth
+                      label="Whole Team"
+                      value={teams.some(t => t.teamId === teamId) ? teamId : ''}
+                      disabled={!!assigneeId}
+                      onChange={(e) => {
+                        setTeamId(e.target.value);
+                        if (e.target.value) setAssigneeId('');
+                      }}
+                      sx={{
+                        opacity: assigneeId ? 0.4 : 1,
+                        transition: 'opacity 0.2s',
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 1.5,
+                          ...(teamId && {
+                            '& fieldset': { borderColor: 'success.main', borderWidth: 2 },
+                          }),
+                        },
+                      }}
+                    >
+                      <MenuItem value=""><em>None</em></MenuItem>
+                      {teams.map((t) => (
+                        <MenuItem key={t.teamId} value={t.teamId}>{t.name}</MenuItem>
+                      ))}
+                    </TextField>
+                  </Box>
                 </Box>
 
                 <TextField
@@ -584,23 +628,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({ open, onClose, onSave, tas
                     Task Attachment
                   </Typography>
                   {renderImageZone()}
-                </Box>
-
-                {/* Assignment Routing Helper Box */}
-                <Box
-                  sx={{
-                    p: 2,
-                    bgcolor: 'rgba(255, 255, 255, 0.02)',
-                    border: '1px dashed rgba(255, 255, 255, 0.08)',
-                    borderRadius: 2,
-                  }}
-                >
-                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontWeight: 600, mb: 0.5 }}>
-                    Assignment Routing Policy
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', lineHeight: 1.45 }}>
-                    A task can belong directly to an individual team member OR a whole team, but not both. Selecting an assignee clears the team routing, and vice versa.
-                  </Typography>
                 </Box>
 
                 {/* Hidden File Input */}

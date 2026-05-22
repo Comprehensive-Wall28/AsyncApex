@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -20,6 +20,14 @@ export const Login: React.FC = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // If a valid token already exists, skip the login page entirely
+  useEffect(() => {
+    const token = localStorage.getItem('idToken');
+    if (!token) return;
+    const from = (location.state as any)?.from?.pathname || '/dashboard';
+    navigate(from, { replace: true });
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -44,7 +52,7 @@ export const Login: React.FC = () => {
       navigate(from, { replace: true });
 
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid email or password. Please try again.');
+      setError(err.message || 'Invalid email or password. Please try again.');
     } finally {
       setLoading(false);
     }

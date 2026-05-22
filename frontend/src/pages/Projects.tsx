@@ -69,19 +69,22 @@ export const Projects: React.FC = () => {
 
   // --- Filter and Search Logic ---
   const filteredProjects = projects.filter((project) => {
+    // Employees only see projects belonging to their team
+    if (!isManager && user?.teamId) {
+      if (!(project.teamIds ?? []).includes(user.teamId)) return false;
+    }
+
     const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (project.description && project.description.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const matchesTeam = !selectedTeamId || (project as any).teamId === selectedTeamId;
+    const matchesTeam = !selectedTeamId || (project.teamIds ?? []).includes(selectedTeamId);
 
     return matchesSearch && matchesTeam;
   });
 
-  // Helper to find team name for a project card
-  const getTeamName = (teamId?: string) => {
-    if (!teamId) return 'No Team Assigned';
-    const team = teams.find(t => t.teamId === teamId);
-    return team ? team.name : 'Unknown Team';
+  const getTeamNames = (ids?: string[]) => {
+    if (!ids || ids.length === 0) return 'No Team Assigned';
+    return ids.map(id => teams.find(t => t.teamId === id)?.name ?? 'Unknown').join(', ');
   };
 
   return (
@@ -266,7 +269,7 @@ export const Projects: React.FC = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
                       <GroupRounded sx={{ fontSize: 18 }} />
                       <Typography variant="caption" sx={{ fontWeight: 500 }}>
-                        {getTeamName((project as any).teamId)}
+                        {getTeamNames(project.teamIds)}
                       </Typography>
                     </Box>
                   </Stack>

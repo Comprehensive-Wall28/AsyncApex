@@ -87,6 +87,13 @@ interface SortableTaskCardProps {
 const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, role, onClick, onStart, onSubmit, onApprove, onReject, users, teams }) => {
   const isDragDisabled = role === 'employee' && (task.status === 'in-review' || task.status === 'done');
 
+  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!task.imageKey) return;
+    api.s3.getPresignedUrl(task.imageKey).then(({ url }) => setThumbUrl(url)).catch(() => {});
+  }, [task.imageKey]);
+
   const assignee = task.assigneeId ? users.find(u => u.userId === task.assigneeId) : undefined;
   const team = task.teamId ? teams.find(t => t.teamId === task.teamId) : undefined;
 
@@ -149,6 +156,22 @@ const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, role, onClick
         '&:active': { cursor: isDragDisabled ? 'default' : 'grabbing' },
       }}
     >
+      {thumbUrl && (
+        <Box
+          component="img"
+          src={thumbUrl}
+          alt={task.title}
+          sx={{
+            width: '100%',
+            height: 140,
+            objectFit: 'cover',
+            borderRadius: '16px',
+            mb: 2,
+            display: 'block',
+          }}
+        />
+      )}
+
       <Typography sx={{ fontWeight: 600, mb: 1.5, fontSize: '0.95rem', color: 'text.primary', lineHeight: 1.4 }}>
         {task.title}
       </Typography>
@@ -196,7 +219,7 @@ const SortableTaskCard: React.FC<SortableTaskCardProps> = ({ task, role, onClick
       </Box>
 
       <Stack spacing={1} sx={{ mt: 1 }}>
-        {task.status === 'todo' && (
+        {task.status === 'todo' && role === 'employee' && (
           <Button
             fullWidth
             size="small"

@@ -43,7 +43,7 @@ function App() {
               }
             >
               <Route path="/dashboard" element={<MainDashboard />} />
-              <Route path="/projects" element={<ManagerRoute><Projects /></ManagerRoute>} />
+              <Route path="/projects" element={<Projects />} />
               <Route path="/projects/new" element={<ManagerRoute><NewProject /></ManagerRoute>} />
               <Route path="/teams" element={<Teams />} />
               <Route path="/tasks" element={<Tasks />} />

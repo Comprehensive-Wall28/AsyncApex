@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box, Button, Typography, CircularProgress,
     TextField, Alert, IconButton, Stack,
+    MenuItem, Select, FormControl, InputLabel, FormHelperText, Chip,
 } from '@mui/material';
 import {
     ArrowBackRounded,
@@ -10,23 +11,35 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import api from '../api';
+import type { Team } from '../api/interface';
 
 export const NewProject: React.FC = () => {
     const navigate = useNavigate();
     const { user, loading: authLoading } = useAuth();
 
+    const [teams, setTeams] = useState<Team[]>([]);
+
     // Form state
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
+    const [teamIds, setTeamIds] = useState<string[]>([]);
 
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
+
+    useEffect(() => {
+        api.teams.getAll().then((data: any) => setTeams(data)).catch(() => {});
+    }, []);
 
     const isManager = user?.role === 'manager';
 
     const handleCreateProject = async () => {
         if (!name.trim() || !description.trim()) {
             setError('Please fill in the project name and description.');
+            return;
+        }
+        if (teamIds.length === 0) {
+            setError('Please select at least one team for this project.');
             return;
         }
 
@@ -37,6 +50,7 @@ export const NewProject: React.FC = () => {
             await api.projects.create({
                 name: name.trim(),
                 description: description.trim(),
+                teamIds,
             });
             navigate('/projects');
         } catch (err) {
@@ -192,6 +206,31 @@ export const NewProject: React.FC = () => {
                         placeholder="Describe the scope, goals, and deliverables of this project..."
                         sx={inputSx}
                     />
+
+                    {/* Teams */}
+                    <FormControl fullWidth required sx={inputSx}>
+                        <InputLabel>Teams</InputLabel>
+                        <Select
+                            multiple
+                            value={teamIds}
+                            label="Teams"
+                            onChange={(e) => setTeamIds(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value as string[])}
+                            renderValue={(selected) => (
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                    {(selected as string[]).map((id) => (
+                                        <Chip key={id} label={teams.find(t => t.teamId === id)?.name ?? id} size="small" />
+                                    ))}
+                                </Box>
+                            )}
+                        >
+                            {teams.map((t) => (
+                                <MenuItem key={t.teamId} value={t.teamId}>{t.name}</MenuItem>
+                            ))}
+                        </Select>
+                        <FormHelperText sx={{ color: 'text.secondary' }}>
+                            Assign this project to one or more teams
+                        </FormHelperText>
+                    </FormControl>
                 </Stack>
             </Box>
 

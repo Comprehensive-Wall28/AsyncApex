@@ -39,7 +39,6 @@ export const Navbar: React.FC = () => {
             {[
               { label: 'Features', path: '/features' },
               { label: 'Documentation', path: '/documentation' },
-              { label: 'Pricing', path: '/pricing' },
             ].map((item) => (
               <Button
                 key={item.label}
